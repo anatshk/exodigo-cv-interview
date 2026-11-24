@@ -1,0 +1,180 @@
+# Working preferences (Anat)
+
+## Workstyle
+
+- **Plan first**: for any non-trivial change, propose a short plan and wait for approval
+  before writing code.
+- **Minimal diffs**: make the smallest change that accomplishes the task. Don't refactor,
+  rename, or reformat code unrelated to the request.
+- **Confirm before multi-file edits**: if a change would touch several files (a rename or
+  signature change with multiple call sites), don't apply it automatically: surface the
+  affected scope first, like PyCharm's rename warning, and proceed only on confirmation.
+- **Reuse before adding**: prefer reusing existing code; generalize an existing function
+  rather than adding a near-duplicate.
+- When an ambiguity arises, resolve it, document the decision and the alternatives
+  considered, and proceed; don't stall on it.
+- Prefer clear, readable code over cleverness.
+
+## Communication style
+
+- **No em dashes.** In anything you write for me (replies, docs, code comments and
+  docstrings, log and error strings, commit messages), use only the hyphen "-". Never use
+  em dashes, en dashes, or figure dashes. Rewrite the sentence if a dash is tempting: use a
+  comma, a colon, parentheses, or two sentences. This does not apply to text you are quoting
+  from an existing file or source.
+- **Be concise.** Give the shortest reply that fully answers. Cut preamble, filler, and
+  restating my question back to me.
+- **Plain English.** I read English at a high level, but it is a second or third language.
+  Avoid idioms, slang, cultural references, and "cute" or clever phrasing. Prefer direct,
+  literal wording. If a technical term is the precise one, use it; the thing to avoid is
+  decorative language, not precision.
+- In code, the plain-English and no-dashes rules cover the human-language parts (comments,
+  docstrings, log and error messages, user-facing strings), not syntax or identifiers.
+  Naming has its own rule under Python.
+
+## Handover and context hygiene
+
+- Every project keeps a **`NEXT_STEPS.md`** at the repo root: where we are, what to pick up
+  next, open questions. It is the resume pointer; read it first when starting a session.
+- Longer projects also keep **`docs/WORKLOG.md`** (reverse-chronological, newest first,
+  with concise highlights: a short narrative of what was done plus the decisions made, not a
+  blow-by-blow; skip mechanics that PRs and CI already capture) and a phase tracker
+  (`DEVELOPMENT_PLAN.md` or `docs/PLAN.md`, with ✅/🔄/⬜ status).
+- **Alternatives** go in the log only when they add real information; ask before adding.
+- Doc-only updates are batched into a periodic docs PR, not committed loosely to `main`.
+- **At every task or phase transition, run the `handover` skill**: it updates the docs above,
+  commits, and hands back a clean stopping point so I can `/clear` and resume cheaply.
+- Proactively suggest `handover` when a phase finishes, when a PR lands, or when the
+  conversation has gotten long enough that you're losing earlier detail. Don't wait to be
+  asked; a stale context costs more than the interruption.
+
+## Untracked local files
+
+Two directories, one rule each. Don't blur them.
+
+- **`.secrets/`** holds anything that grants access: API keys, OAuth `credentials.json` /
+  `token.json`, cookies, live session state. Gitignored, and **denied to you** for both
+  reading and writing in my global settings. The code reads these; you don't. If I ask you
+  to change a value in here, tell me the edit to make rather than making it.
+- **`local/`** holds everything else the code needs but git shouldn't hold: my CV, LinkedIn
+  export, `constraints.txt`, group and account lists, sample inputs, model weights, scratch
+  databases. Gitignored but **readable**: you can open these, and should, when they explain
+  behavior.
+
+The test: if leaking it would let someone act as me, it's `.secrets/`. If leaking it would
+be embarrassing but not dangerous, it's `local/`. When in doubt, `.secrets/`.
+
+Gitignore the contents of `local/` but track a README that says what belongs there, so a
+fresh clone gets the folder:
+
+```gitignore
+.secrets/
+local/*
+!local/README.md
+```
+
+Never move a file from `.secrets/` to `local/` on your own initiative, and never quote,
+echo, or commit the contents of either, including into a commit message or PR body.
+
+The permission denies cover the Read/Write/Edit tools; a `PreToolUse` hook
+(`~/.claude/hooks/block-secrets.sh`) additionally blocks any **Bash** command whose text
+contains `.secrets`, `.config/jobhunt`, or `.env`, since an allowed interpreter could
+otherwise read them. If you see "Blocked by the block-secrets hook", that is the intended
+behavior; don't route around it by renaming paths, globbing, or building the path at
+runtime. Say what you need and let me run it. A commit message that merely mentions the
+literal string will also trip it; just rephrase.
+
+## Python
+
+- **venv + pip**, never Poetry. Dependencies pinned in `requirements.txt` (plus
+  `requirements-dev.txt` for tooling).
+- **`pyproject.toml` is tool configuration only** (Black, isort, pytest, mypy), not
+  dependency management.
+- System Python is PEP 668 externally-managed: run everything as `.venv/bin/python -m ...`.
+- Setup is `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`.
+- Format with **Black**, line length **88**.
+- Sort imports with **isort**, `profile = "google"` **plus `force_single_line = false`**:
+  group names from the same module into one parenthesized `from x import (a, b, ...)` block,
+  wrapped to stay Black-compatible.
+- **Type hints required** on all function and method signatures.
+- **Google-style docstrings** on modules and public functions/classes. **Multi-line
+  docstrings start on the line after the opening `"""`** (summary on the second line, not
+  the first); single-line docstrings stay on one line. This is a deliberate deviation from
+  PEP 257 and Google's own convention, and no formatter enforces it.
+- **No gratuitous blank lines**: none between a multi-line docstring's summary and its body
+  (unless the docstring is long or structured with `Args:`/`Returns:`, where the separation
+  helps scanning), and none at the start of a function body before the first statement.
+  Blank lines Black inserts itself stay.
+- **Meaningful, descriptive names**: avoid abbreviations and single letters except
+  conventional short-lived loop indices.
+- Optimize for determinism and reproducibility. **Fix a seed** wherever randomness appears.
+  Pin dependencies and document external models/services in the README.
+
+## Testing
+
+- Work **test-driven**: red → green → refactor.
+  1. **Red**: write the test first and run it to confirm it fails *for the right reason*.
+  2. **Green**: write the minimal code to make it pass.
+  3. **Refactor**: clean up while keeping it green.
+- Don't write implementation code for a feature before its failing test exists.
+- **pytest** for core logic. Glue and IO code doesn't need exhaustive tests, but core logic
+  must be covered first.
+- A bugfix gets a test that fails before it and passes after.
+- The full suite must pass before any commit.
+
+## Git
+
+- **Commit only when explicitly asked. Never commit automatically.**
+- **Conventional Commits** (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, ...). Small, focused
+  commits.
+- Message style: a good title, a short context sentence if it helps, then **terse bullets**:
+  name the file or the change, don't explain it, no "Add" prefix.
+- Work lands via **reviewed PRs** on feature branches off `main`. **PR per concern**: don't
+  bundle an obvious bugfix with an architectural change; the easy fix shouldn't wait on the
+  hard conversation.
+- **Merge strategy: prefer "Rebase and merge" on GitHub, not squash.**
+- **Exception:** `/add-idea` commits `ideas/*.md` directly to `main` and pushes, without a
+  PR, in my own repos only.
+- **Stacked PRs (own repos): use GitHub's native stacked PRs.** Each PR targets the branch
+  below it, bottom targets `main`; GitHub enforces bottom-up merging and auto-retargets/
+  rebases the remaining PRs as each base lands, which removes the old hazard where
+  squash-merging a base and deleting it silently dropped the stacked PR's commits from
+  `main`. Rebase-and-merge (not squash) still preferred; keep stacks shallow. Same-repo
+  only (no cross-fork), GitHub.com only (not Desktop); API merges use the async merge
+  endpoint.
+- `gh` runs under my account, so **tag PR comment replies with `[Claude-<model>]`**; it
+  should be obvious it's Claude replying, not me replying to myself.
+
+## When the repo belongs to someone else
+
+- Match the house style that's already there; don't replace it with mine.
+- Never push to the upstream `origin`. Work on a fork remote.
+- **Native stacked PRs don't work here**: they're same-repo only, and this workflow is
+  fork-based. Use single PRs, or shallow manual stacks rebased onto upstream.
+- Anything that changes the architecture or the recovery/supervision model is the author's
+  decision; open an issue and ask before implementing it.
+- Don't fix one platform by regressing another.
+
+## Per-project `CLAUDE.md`
+
+Keep it thin; this file already covers the defaults. A project file should only carry:
+
+```markdown
+# Project: <name>
+<2-4 sentences: what it is, what "done" looks like, what's git-ignored input data>
+
+## Deviations from my global conventions
+<only the differences; omit the section entirely if there are none>
+
+## Local state / do-not-touch
+<live sessions, secrets dirs, generated artifacts, files denied in .claude/settings.json>
+
+## Running
+<the actual commands: setup, entry points, daemon control>
+```
+
+## Non-code projects
+
+For prose, slides, and planning repos, the Python and TDD sections above don't apply;
+say so explicitly in the project's `CLAUDE.md` and state the writing conventions instead.
+The workstyle, handover, and git sections still apply.

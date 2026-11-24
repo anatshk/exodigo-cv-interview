@@ -1,0 +1,71 @@
+---
+name: handover
+description: Close out a work phase cleanly so the context can be cleared. The top model writes a short session brief — the one thing only it can do, summarizing decisions the files don't show — then delegates the git take-stock, staleness checks, doc rewrites (NEXT_STEPS.md / docs/WORKLOG.md / the phase tracker), and the commit to a cheaper `handover-writer` subagent. Use at task or phase transitions, after a PR lands, when the user says "handover", "wrap up", "let's stop here", or when the conversation has grown long enough that earlier detail is being lost.
+---
+
+# Handover
+
+The point is a clean `/clear`: everything worth keeping ends up in files, so the next
+session starts cold and still knows exactly where it is. This skill is structured to spend
+little on the top model — the costly part of a handover is *many* tool round-trips over a
+*huge* accumulated context on the top model (git, staleness checks, read three docs, edit
+three docs, commit — each turn re-bills the whole conversation). The one thing only the top
+model can do is summarize decisions that aren't visible in git. So do exactly that here,
+then hand the mechanics to a cheap subagent working in a tiny fresh context.
+
+## 1. Write the session brief (this model)
+
+From what you remember of *this* session — not from git — write a compact brief. This is the
+whole reasoning contribution; keep it tight but complete, because the subagent cannot see the
+conversation and will treat this as ground truth for the narrative. Cover:
+
+- **What landed this session** — what now works end-to-end / is live that wasn't before.
+- **Decisions made and why** — the ones the diff doesn't explain. Note an alternative only
+  if it carries real information (and if you would, ask the user before including it).
+- **Committed vs. dirty** — what you committed this session, and any **uncommitted source**
+  work still in the tree (name the files; the subagent must not sweep these into the docs
+  commit).
+- **Pick up here** — the next 2–3 concrete items, most important first, each actionable
+  without re-reading the code: the command to run, the PR to merge, the file to open.
+- **Open questions** — anything blocked on the user or an outside answer.
+- **Non-git state** — unprocessed counts, what's rate-limited, what's half-configured,
+  stated test count / coverage if it changed.
+
+Don't touch the files yourself and don't run the git take-stock — that's the subagent's job,
+and doing it here is the expense you're trying to avoid.
+
+## 2. Delegate the mechanics (cheap subagent)
+
+Spawn the **`handover-writer`** agent (defined in `~/.claude/agents/handover-writer.md`,
+`model: sonnet`) and pass it the brief verbatim as its prompt. Run it synchronously
+(`run_in_background: false`) — you need its report before handing back.
+
+> If `handover-writer` isn't registered as a spawnable `subagent_type` this session, spawn
+> `general-purpose` with `model: "sonnet"` instead and tell it in the prompt to first read
+> `~/.claude/agents/handover-writer.md` and follow it, then append the brief. Same result,
+> one extra file read.
+
+The subagent runs the git take-stock, checks the on-disk docs for staleness, rewrites
+`NEXT_STEPS.md` / `docs/WORKLOG.md` / the phase tracker to be true right now, makes the
+single docs commit, and appends one marker line to `claude_logs/handover_log.jsonl` (plus
+an archived copy of the brief) so handover cost can be analyzed offline later by
+`~/claude_projects/analyze_handovers.py` (a shared cross-project script) — no cost data is
+computed live. Its report is **not shown to the user** — you relay it.
+
+## 3. Hand back (this model)
+
+Read the subagent's report and relay what matters:
+
+- what landed this session,
+- the docs commit it made (SHA + message), and what's committed vs. still dirty — call out
+  any uncommitted **source** work it flagged for the user to decide on,
+- any staleness it found and fixed,
+- the top 2–3 things in "Pick up here".
+
+**Offer a PR — don't open one unprompted.** If the branch is ahead of `main` and the work is
+a coherent unit, offer it and wait; pushing surfaces a permission prompt either way. PR per
+concern; land base PRs before stacked ones.
+
+Finish with: **"Handover written — safe to `/clear` now."** You can't clear context yourself;
+the user runs `/clear` (finished phase) or `/compact` (next step continues directly from this
+one) — say which you'd suggest.
