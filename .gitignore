@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.idea/
+.DS_Store
+*.ipynb_checkpoints/
+
+# Machine-generated backup transcripts (local safety net; curated ai-chats/*.md are tracked)
+ai-chats/_auto/
+
+# Untracked local inputs (readable but not committed) and secrets (never committed)
+.secrets/
+local/*
+!local/README.md
