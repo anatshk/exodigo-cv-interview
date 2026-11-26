@@ -4,38 +4,34 @@ Resume pointer. Read this first.
 
 ## Where we are (2026-11-26)
 
-Brainstorm (phase 1) is done: reviewed against `Interview_Preparation.pdf`, final pipeline
-chosen (the full 7-module system). Design (phase 2) is in progress: `WRITEUP.md` draft is
-done (final system, building the models, parameter selection, evaluation, challenges,
-assumptions, open questions), with figures in `docs/figures/` (`scripts/make_figures.py`
-regenerates the three JPGs; needs Pillow and pdftoppm). Unverified claims are marked
-"(to verify)". All work is committed and pushed to main (this repo has no PRs).
-Session log: `ai-chats/03-pdf-review.md`.
+The project is effectively done. `WRITEUP.md` is final (reviewed by Anat) and is the
+material for the interview: she presents directly from it, so there is no separate
+presentation. Fact checking is complete: no "(to verify)" items remain, and
+`docs/BRAINSTORM.md` is updated. Everything is committed and pushed to main (this repo has
+no PRs). Session log: `ai-chats/03-pdf-review.md`.
 
-Finding: all 5 sample panoramas are the same Detroit intersection, 2007 to 2025. The PNGs
-are 4:1 strips (about +/-45 deg around the horizon) but the metadata says 13312x6656 (2:1),
-so the vertical angle per pixel must come from the real image.
-
-Working split: Anat edits the write-up text; Claude does visual changes.
+Key facts settled: triangulation is the main location method (camera configuration unclear);
+output is GeoJSON; sample PNGs are 360 x 90 deg strips with the horizon on the middle row;
+Ultralytics is AGPL-3.0 (RF-DETR is the Apache 2.0 fallback); LVIS has a "manhole" class, so
+YOLOE / YOLO-World may detect covers directly.
 
 ## Pick up here
 
-1. Fact checking: go through every "(to verify)" in `WRITEUP.md` and the open todos in
-   `docs/BRAINSTORM.md`: Street View projection and vertical FOV of API images (4:1 vs 2:1),
-   camera height, meaning of heading/tilt/roll, camera lat/lng accuracy, GIS output format,
-   Ultralytics license, open-vocabulary detectors (Grounding DINO, OWLv2, YOLO-World,
-   moondream2, Qwen-VL), zero-shot classifiers (OpenCLIP, SigLIP 2), cut-out augmentation
-   name, texture filter family, the tool Anat named "JEV", line fitting method, US manhole
-   standards. Then remove the "(to verify)" marks and update the brainstorm.
-2. Continue Anat's review of the `WRITEUP.md` visuals as notes come in.
-3. Phase 3: presentation material.
+Nothing required. Optional:
+
+1. Send the `WRITEUP.md` section 7 "For Exodigo" questions before the interview.
+2. If time: check which image column `heading` maps to on the 5 sample panoramas (same
+   intersection, different headings).
 
 ## Open questions
 
-- Presentation format: slides, the write-up, or both.
-- Questions for Exodigo in `WRITEUP.md` section 7 (maybe send before the interview).
+- Camera height and lat/lng accuracy (not published).
+- Which image column `heading` maps to.
+- Zero-shot classifier (OpenCLIP, SigLIP 2) on real crops: untested.
+- For Exodigo: covers vs utility line goal, ground truth availability, types vs providers,
+  confirming sensor estimations, vertical FOV of API images.
 
 ## Non-git state
 
-- Untracked `claude_logs/` (handover logs): origin predates this session, do not commit.
+- Untracked `claude_logs/` (handover logs): origin predates sessions, do not commit.
 - `.venv/` local (dev tools only).

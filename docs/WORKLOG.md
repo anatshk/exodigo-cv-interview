@@ -3,6 +3,26 @@
 Reverse-chronological, newest first. Concise highlights: what was done and the decisions
 made, not a blow-by-blow.
 
+## 2026-11-26: Fact checking and wrap-up
+
+- All "(to verify)" items in `WRITEUP.md` and open todos in `docs/BRAINSTORM.md` resolved.
+- Naming fixes agreed with Anat: "undistortion" became IPM (inverse perspective mapping,
+  defined in new section 8 "Terms"); Hough became circle/ellipse detection (round covers
+  look like ellipses); line fitting is multi-model fitting (sequential RANSAC); cKDTree works
+  on coordinates converted to meters; CLIP text encoder replaces "word2vec-like"; JEV is the
+  TypeSafe AI commercial decision model (open-weight Jev-Omni).
+- Decision: triangulation is the main location method, because camera height (about 2.5 m,
+  unofficial) and GPS accuracy are unpublished. Module 4 is "Deduplication + triangulation".
+  Output is GeoJSON.
+- Decision: Ultralytics is AGPL-3.0, so RF-DETR (Apache 2.0) is the fallback. LVIS has a
+  "manhole" class, so YOLOE / YOLO-World may detect covers directly; OWLv2 and SAM 3 dropped.
+- Note: YOLO perspective/shear augmentations cannot simulate panoramic distortion (to
+  re-examine). Occlusion augmentation is Cutout / Random Erasing (CoarseDropout).
+- Finding: sample PNG strips are 360 x 90 deg with the horizon on the middle row; one
+  metadata file says 16384x8192.
+- Decision: Anat reviewed `WRITEUP.md` and considers it final; she presents directly from
+  it, so phase 3 (presentation material) is dropped.
+
 ## 2026-11-26: PDF review and write-up draft
 
 - Brainstorm reviewed against the PDF. Added to `docs/BRAINSTORM.md`: parameter tuning
