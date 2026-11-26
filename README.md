@@ -17,12 +17,18 @@ No code is required. The interview expects reasoning for each decision: problem
 definition, data and preparation, models and learning paradigms, parameter selection,
 and evaluation. Full brief: [`Interview_Preparation.pdf`](Interview_Preparation.pdf).
 
+## Write-up
+
+The design is in [`WRITEUP.md`](WRITEUP.md): the final system, labeling and training,
+evaluation, challenges, assumptions and open questions, with figures.
+
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `Interview_Preparation.pdf` | The task brief, as received. |
-| `images/` | Sample equirectangular panoramas (`.png`) with metadata (`.json`: `panoId`, `lat`, `lng`, `heading`, `tilt`, `roll`, `date`, image size). |
-| `docs/` | Work log and plan. Design notes go here. |
+| `WRITEUP.md` | The design write-up for the interview. |
+| `images/` | Sample panorama strips (`.png`, 4:1) with metadata (`.json`: `panoId`, `lat`, `lng`, `heading`, `tilt`, `roll`, `date`, image size). |
+| `docs/` | Work log, plan, brainstorm. `docs/figures/`: write-up figures. |
 | `ai-chats/` | Transcripts of the AI-assisted working sessions. |
-| `scripts/`, `tests/` | Session-transcript tooling (converts Claude Code session logs to Markdown). |
+| `scripts/`, `tests/` | Session-transcript tooling (converts Claude Code session logs to Markdown). `scripts/make_figures.py` regenerates the raster figures. |

@@ -133,9 +133,11 @@ Calculation idea:
 
 Assumptions from the sample metadata (to verify):
 
-- The images are 2:1 (13312 x 6656), so the projection is likely equirectangular: each
-  pixel maps directly to a horizontal and vertical angle. Focal length and sensor size
-  may not be needed.
+- The metadata says 13312 x 6656 (2:1), so the projection is likely equirectangular:
+  each pixel maps directly to a horizontal and vertical angle. Focal length and sensor
+  size may not be needed.
+- But the sample files are 4:1 strips (about ±45° around the horizon). Take the vertical
+  angle per pixel from the real image, not the metadata size (to verify).
 - `tilt` is in degrees, and about 90 means the camera is level with the horizon.
 - Distance to a cover comes from the camera height plus a flat-ground assumption.
 
@@ -613,9 +615,10 @@ Parameter tuning is done per module. It is not in the current scope.
   same place separates road and sidewalk from sky and buildings (Task 1).
 - Camera information is available (focal length, sensor pixel-to-mm factor, etc.), and
   the camera position is known (Task 1).
-- The panoramas are equirectangular (2:1), so each pixel maps to an angle; `tilt` is in
-  degrees, with about 90 level with the horizon; distance comes from the camera height
-  plus a flat ground (Task 1, to verify).
+- The panoramas are equirectangular (metadata says 2:1), so each pixel maps to an angle;
+  the sample files are 4:1 strips (about ±45° around the horizon), so the vertical angle
+  per pixel comes from the real image; `tilt` is in degrees, with about 90 level with the
+  horizon; distance comes from the camera height plus a flat ground (Task 1, to verify).
 - Infrastructure travels in straight lines most of the time (Task 1).
 - The road and sidewalk can easily be cut as the lower half of the panorama (Task 1).
 - Manhole covers can't overlap, and probably have a minimal distance between them

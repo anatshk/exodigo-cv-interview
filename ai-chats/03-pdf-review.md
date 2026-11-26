@@ -66,3 +66,78 @@ I updated `docs/BRAINSTORM.md`:
 6. Same section: triangulation from multiple images as a location improvement step to consider.
 
 Not added, since you did not mention them: the position error per detection (from point 3) and asking Exodigo questions before the interview (point 7). Tell me if you want either one.
+
+## User
+
+commit and we'll move to the next step - creating a write-up file as something i refer to in my presentation (including visuals). we can do it as a README.md in the repo.
+
+## Assistant
+
+Committed as `2908f17` on `main`. It contains `docs/BRAINSTORM.md` and the new session log. I left the untracked `claude_logs/` folder out because I don't know what it is.
+
+Here is my plan for the write-up. I'll wait for your OK before writing anything.
+
+### Where it goes
+`README.md` already exists, with the task summary and the repo layout. I'll put the write-up first and move the repo layout to a short section at the bottom. Figures go in `docs/figures/`. The work goes on a branch `docs/writeup`, which we merge with a PR.
+
+### Outline
+The outline follows the PDF's six points, because the interviewers will likely go through them in that order.
+
+1. **Goal and assumptions:** the task in three lines, then every assumption with its reason.
+2. **Problem definition:**
+   - Detection: one class, from panorama to boxes, then to lat/lng.
+   - Classification: open-set, semi-supervised, per region, with "unknown" as a valid output.
+3. **Data and preparation:** the metadata fields, dataset splits by location and season with no leakage, label selection, and augmentations.
+4. **Models and approach:** the chosen pipeline, plus a short table of the alternatives we considered and why we didn't choose them.
+5. **System components:** a pipeline diagram, plus a table with the input and output of each module.
+6. **Pixel to lat/lng:** the geometry, the duplicate removal across views and years, the known objects database, and triangulation.
+7. **Parameter selection:** per module, out of scope for now.
+8. **Evaluation:** the three levels, and the combined confusion matrix.
+9. **Challenges and failure modes.**
+10. **Questions for Exodigo.**
+
+### Visuals
+- **Pipeline diagram:** Mermaid. GitHub renders it directly, so there is no image file to keep in sync.
+- **Sample panorama:** downscaled. The originals are 13312 px wide. I'd annotate it with the lower-half region of interest and a visible cover (`Kk0_Hzv4bQc2ha7esbEDcw`).
+- **The three cover examples from the PDF:** cropped from page 2.
+- **Geometry sketch:** a camera at a known height, the angle down to a pixel, and the ground distance. A small hand-written SVG.
+- **Optional:** a sketch of a location-based split (for example cities or neighborhoods in separate folds).
+
+The panorama and PDF figures would come from a small script in `scripts/`, so they can be regenerated.
+
+### Two things to settle first
+1. **The final pipeline.** The brainstorm has several options, and `NEXT_STEPS.md` says you choose the single pipeline. The write-up needs that choice. Do you want to state it now, or should I draft section 4 from the options that seem to lead in your notes, so you can correct it?
+2. **Fact finding.** The geospatial conversion, the Street View fields, the YOLO license and the open-vocabulary models are still unverified. My recommendation: draft now, mark unverified claims "(to verify)", and run the fact-finding pass afterwards to remove those marks. The other option is to do fact finding first, which is slower but gives a cleaner first draft.
+
+## User
+
+WRITEUP.md instead of readme, make the readme refer to it. 1. the pipeline i want to focus on is the full system i described in "What are the main components of the system, and how do they interact?" consideration point. we'll start with the final system and then dive into data labeling and model training (not part of final system, exept for the active learning loop). 2. start with draft, fact finding after. make sure to be concise, i want the document to be an easy read.
+
+## User
+
+Here is a note offered by a side agent:
+
+> Heads up · The sample panorama files are 4:1 strips, not the 2:1 size their metadata states, so the committed pixel-to-angle assumption may be wrong.
+>
+> **Sample panoramas are not full 2:1 images**
+> - The JSON metadata says each panorama is **13312 x 6656** (2:1). For a full 360° panorama, that ratio would let each pixel map directly to an angle.
+> - The actual PNG files in `images/` are **4096 x 1024 or 3328 x 832** (4:1). They look like a horizontal strip around the horizon, about ±45° up and down. The top and bottom are cut off.
+> - The brainstorm we committed says "the images are 2:1". The main agent mentioned the mismatch only briefly while making figures.
+> - This matters for the pixel-to-lat/lng step. With the wrong vertical angle per pixel, distances to covers come out wrong.
+> - **Check that the brainstorm and the write-up both say this**, and add it to the questions for Exodigo.
+
+note this comment - wdyt?
+
+## Assistant
+
+The draft is ready on branch `docs/writeup` (not committed). `WRITEUP.md` starts with the final system (the seven modules from point 4), then covers labeling and training, with the active learning loop as the only training part inside the running system. Visuals: a Mermaid pipeline diagram, the road ROI on a sample panorama, a pixel-to-ground geometry sketch, the same intersection from 2007 to 2025, and the three cover examples from the PDF. `README.md` now points to it.
+
+The side agent's note is correct. The write-up now has a caution in "Pixel to lat/lng" and a question for Exodigo. The brainstorm still says "The images are 2:1", which needs your OK to fix.
+
+## User
+
+yes, apply the brainstorm fix. commit, no pr needed in this repo. i'll have reviews on the writeup draft - i can change the text myself, but i'll refer you to visual changes
+
+## Assistant
+
+I applied the 4:1 strip fix in two places in `docs/BRAINSTORM.md` and committed the write-up, figures, figure script and brainstorm fix to `main` (no PR). Ready for your visual review notes.

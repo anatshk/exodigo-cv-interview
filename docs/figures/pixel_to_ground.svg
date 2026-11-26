@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 330" font-family="Helvetica, Arial, sans-serif" font-size="15">
+  <rect width="900" height="330" fill="white"/>
+
+  <!-- Side view -->
+  <text x="20" y="28" font-weight="bold" font-size="17">Side view: distance from the vertical angle</text>
+  <line x1="40" y1="270" x2="440" y2="270" stroke="#555" stroke-width="2"/>
+  <text x="200" y="262" fill="#555">ground</text>
+  <rect x="62" y="80" width="16" height="20" fill="#2a6fb0"/>
+  <text x="20" y="72" fill="#2a6fb0">camera</text>
+  <line x1="70" y1="100" x2="70" y2="270" stroke="#2a6fb0" stroke-dasharray="5,4"/>
+  <text x="80" y="190" fill="#2a6fb0">h (camera height)</text>
+  <line x1="78" y1="90" x2="440" y2="90" stroke="#999" stroke-dasharray="6,4"/>
+  <text x="330" y="82" fill="#999">horizon</text>
+  <line x1="78" y1="90" x2="380" y2="270" stroke="#c0392b" stroke-width="2"/>
+  <path d="M 150 90 A 72 72 0 0 1 140 127" fill="none" stroke="#c0392b"/>
+  <text x="158" y="118" fill="#c0392b">θ</text>
+  <ellipse cx="380" cy="270" rx="18" ry="5" fill="#333"/>
+  <text x="402" y="262" fill="#333">cover</text>
+  <line x1="70" y1="305" x2="380" y2="305" stroke="#333"/>
+  <text x="170" y="324" fill="#333">d = h / tan(θ)</text>
+
+  <!-- Top view -->
+  <text x="490" y="28" font-weight="bold" font-size="17">Top view: bearing from the horizontal angle</text>
+  <circle cx="620" cy="190" r="8" fill="#2a6fb0"/>
+  <text x="560" y="220" fill="#2a6fb0">camera lat/lng</text>
+  <line x1="620" y1="190" x2="620" y2="60" stroke="#999" stroke-dasharray="6,4"/>
+  <text x="608" y="52" fill="#999">N</text>
+  <line x1="620" y1="190" x2="720" y2="80" stroke="#2a6fb0" stroke-dasharray="5,4"/>
+  <text x="690" y="70" fill="#2a6fb0">heading</text>
+  <line x1="620" y1="190" x2="830" y2="140" stroke="#c0392b" stroke-width="2"/>
+  <ellipse cx="830" cy="140" rx="12" ry="7" fill="#333"/>
+  <text x="770" y="170" fill="#333">cover</text>
+  <path d="M 620 130 A 60 60 0 0 1 678 176" fill="none" stroke="#c0392b"/>
+  <text x="684" y="150" fill="#c0392b">bearing</text>
+  <text x="490" y="270" fill="#333">bearing = heading + pixel column angle</text>
+  <text x="490" y="295" fill="#333">cover lat/lng = camera lat/lng moved d meters</text><text x="490" y="318" fill="#333">along the bearing</text>
+</svg>
