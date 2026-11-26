@@ -181,3 +181,19 @@ size is good, commit.
 ## Assistant
 
 Committed to `main`.
+
+## User
+
+1.5 - replace "Straight line checker" with "Confidence reviewer", mention the known obj db
+
+## Assistant
+
+I renamed section 1.5 to "Confidence reviewer" with two scores: straight lines, and years seen from the known objects database. I also updated row 5 of the module table to match. Not committed.
+
+## User
+
+great, commit. push, we'll clear and start with the fact-checking phase
+
+## Assistant
+
+Committed and pushed to `main`, then ran the handover so the next session starts with fact checking.

@@ -26,7 +26,7 @@ Items marked *(to verify)* are not checked yet.
 | 2 | Detector | Batches of tiles (mixed across images for speed) | Boxes + confidence, in tile coordinates |
 | 3 | Pixel to lat/lng | Detections, tile-to-image map, metadata | Lat/lng per detection + confidence |
 | 4 | Deduplication | Lat/lng list, known objects database | Same list, one entry per physical cover |
-| 5 | Straight line checker | Deduplicated list | Same list + alignment score |
+| 5 | Confidence reviewer | Deduplicated list, known objects database | Same list + line and years-seen scores |
 | 6 | Classifier | Undistorted crop per detection | Same list + type label (or "unknown") |
 | 7 | Output | Full list | GIS layer / map overlay, final confidence |
 
@@ -82,11 +82,16 @@ seasons, and the road was repaved by 2020.*
 - A cover seen in several years gets a higher confidence. A cover seen once may be a
   false positive, or it was removed or paved over.
 
-### 1.5 Straight line checker
+### 1.5 Confidence reviewer
 
-Utility lines mostly run straight. Fit lines through the covers of a small area (RANSAC
-or a newer method *(to verify)*). A cover on a line with others gets a higher score.
-This is the module with the weakest assumption: it may add noise instead of clarity.
+Adds two confidence scores to each cover:
+
+- **Straight lines:** utility lines mostly run straight. Fit lines through the covers of
+  a small area (RANSAC or a newer method *(to verify)*). A cover on a line with others
+  gets a higher score. This is the weakest assumption in the system: it may add noise
+  instead of clarity.
+- **Years seen:** from the known objects database. A cover seen at the same place in
+  several years gets a higher score.
 
 ### 1.6 Classifier
 
