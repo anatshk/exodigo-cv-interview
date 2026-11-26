@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="400" viewBox="0 0 1100 400" font-family="Helvetica, Arial, sans-serif" font-size="17">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#444"/>
+    </marker>
+  </defs>
+  <rect width="1100" height="400" fill="white"/>
+
+  <g stroke="#2a6fb0" stroke-width="2" fill="#eef3fa">
+    <!-- Row 1 -->
+    <path d="M 60 30 H 260 V 98 Q 210 122 160 98 T 60 98 Z"/>
+    <rect x="320" y="30" width="200" height="80" rx="8"/>
+    <rect x="580" y="30" width="200" height="80" rx="8"/>
+    <rect x="840" y="30" width="200" height="80" rx="8"/>
+    <!-- Row 2 -->
+    <rect x="60" y="190" width="200" height="80" rx="8"/>
+    <rect x="320" y="190" width="200" height="80" rx="8"/>
+    <rect x="580" y="190" width="200" height="80" rx="8"/>
+    <rect x="840" y="190" width="200" height="80" rx="8"/>
+    <!-- Row 3: known objects database (cylinder) -->
+    <path d="M 210 322 V 372 A 80 12 0 0 0 370 372 V 322"/>
+    <ellipse cx="290" cy="322" rx="80" ry="12"/>
+  </g>
+
+  <g fill="#1d2b3a" text-anchor="middle">
+    <text x="160" y="62">0. Panorama</text>
+    <text x="160" y="84">+ metadata</text>
+    <text x="420" y="64">1. Preprocessing</text>
+    <text x="420" y="88" font-size="15" fill="#555">road ROI, tiling</text>
+    <text x="680" y="76">2. Detector</text>
+    <text x="940" y="76">3. Pixel to lat/lng</text>
+    <text x="160" y="236">4. Deduplication</text>
+    <text x="420" y="217">5. Confidence</text>
+    <text x="420" y="238">reviewer</text>
+    <text x="420" y="258" font-size="14" fill="#555">straight lines, years seen</text>
+    <text x="680" y="236">6. Classifier</text>
+    <text x="940" y="224">7. Output</text>
+    <text x="940" y="248" font-size="15" fill="#555">GIS layer / map</text>
+    <text x="290" y="356">Known objects</text>
+    <text x="290" y="378">database</text>
+  </g>
+
+  <g stroke="#444" stroke-width="2" fill="none" marker-end="url(#arrow)">
+    <!-- Row 1 -->
+    <line x1="262" y1="70" x2="318" y2="70"/>
+    <line x1="522" y1="70" x2="578" y2="70"/>
+    <line x1="782" y1="70" x2="838" y2="70"/>
+    <!-- 3 to 4, S-shaped between the rows -->
+    <path d="M 940 112 V 150 H 160 V 188"/>
+    <!-- Row 2 -->
+    <line x1="262" y1="230" x2="318" y2="230"/>
+    <line x1="522" y1="230" x2="578" y2="230"/>
+    <line x1="782" y1="230" x2="838" y2="230"/>
+    <!-- Database to 4 (read and write) and to 5 -->
+    <line x1="240" y1="308" x2="190" y2="273" marker-start="url(#arrow)"/>
+    <line x1="340" y1="308" x2="390" y2="273"/>
+  </g>
+</svg>

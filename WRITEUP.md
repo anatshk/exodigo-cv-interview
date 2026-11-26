@@ -18,21 +18,7 @@ Items marked *(to verify)* are not checked yet.
 
 ## 1. The final system
 
-```mermaid
-flowchart LR
-    A[Panorama + metadata] --> B[1. Preprocessing<br/>road ROI, tiling]
-    B --> C[2. Detector]
-    C --> D[3. Pixel to lat/lng]
-    D --> E[4. Deduplication]
-    K[(Known objects<br/>database)] <--> E
-    E --> F[5. Straight line<br/>checker]
-    F --> G[6. Classifier]
-    G --> H[7. Output<br/>GIS layer / map]
-    C -. low confidence .-> L[Labeling queue]
-    G -. unknown .-> L
-    L -. retrain .-> C
-    L -. retrain .-> G
-```
+![System pipeline](docs/figures/system_pipeline.svg)
 
 | # | Module | Input | Output |
 |---|---|---|---|
@@ -128,6 +114,13 @@ This is the module with the weakest assumption: it may add noise instead of clar
   plus provider.
 
 ### 1.8 Active learning loop
+
+```mermaid
+flowchart LR
+    C[Detector:<br/>low confidence] -.-> L[Labeling queue<br/>human or VLM]
+    G[Classifier:<br/>unknown] -.-> L
+    L -.-> R[Retrain detector<br/>and classifier]
+```
 
 The only training part inside the running system. Low confidence detections and
 "unknown" covers go to a labeling queue (human or VLM). New labels retrain the detector

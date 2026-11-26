@@ -141,3 +141,43 @@ yes, apply the brainstorm fix. commit, no pr needed in this repo. i'll have revi
 ## Assistant
 
 I applied the 4:1 strip fix in two places in `docs/BRAINSTORM.md` and committed the write-up, figures, figure script and brainstorm fix to `main` (no PR). Ready for your visual review notes.
+
+## User
+
+first, the diagram is way too small. perhaps split it into 2 rows, to is up to step 3 (incl), the bottom starts with dedup untile the end. the known db should be connected to the straight line checker as well, i'll renamge that module as "confidence reviewer" or simila,r it will add stright line confidence but also time-based confidence from th known object db
+
+## Assistant
+
+I split the main diagram into two rows (steps 1 to 3, then 4 to 7), connected the known objects database to module 5, and renamed module 5 in the diagram to "Confidence reviewer (straight lines, years seen)". I moved the active learning loop to its own small diagram in section 1.8. I could not render it locally (the npm download for the Mermaid renderer was blocked), so please check it on GitHub. Not committed.
+
+## User
+
+i'm currently reviewing iin obsidian md reader, is that ok?
+
+## Assistant
+
+Yes, Obsidian works for this. It draws Mermaid diagrams itself, so you'll see the two-row layout there. Two things that may look different from GitHub: images show only if the vault is the repo folder, and the table of contents links use GitHub-style anchors that Obsidian may not follow.
+
+## User
+
+i want an arrow from 3 to 4, is tan be s-shaped between the rows. placce the known obj db in row 3 with arrows to 4 and 5. change the shape of the input (step 0) to be a document
+
+## Assistant
+
+I replaced the Mermaid diagram with an SVG, `docs/figures/system_pipeline.svg`, because Mermaid drops the row layout when a node links across rows. It has the S-shaped arrow from 3 to 4, the known objects database in a third row with arrows to 4 (both ways) and 5, and step 0 as a document shape. Not committed.
+
+## User
+
+image is good, but needs to be larger, same for image in 1.3
+
+## Assistant
+
+I added explicit `width` and `height` to both SVGs (pipeline 1100 x 400, geometry 900 x 330). Without them the reader picks a small default size. If they are still small, the limit is Obsidian's "Readable line length" setting, which caps content width. Not committed.
+
+## User
+
+size is good, commit.
+
+## Assistant
+
+Committed to `main`.
