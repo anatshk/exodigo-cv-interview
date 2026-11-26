@@ -3,6 +3,19 @@
 Reverse-chronological, newest first. Concise highlights: what was done and the decisions
 made, not a blow-by-blow.
 
+## 2026-11-26: Task 2 brainstormed
+
+- `docs/BRAINSTORM.md` has a new Task 2 section (classify covers by type), scribe mode:
+  problem understanding; deterministic approach (shape, OCR, texture, size, color features,
+  PCA plus clustering, labeling by examples, human or VLM; image-encoder alternative with
+  parallel OCR); non-deterministic approach (VLM structured descriptions, "unknown" per
+  feature for human escalation); cost and latency note; open questions and todos.
+- Decision: use LLMs/VLMs only to gather training data or for unexpected edge cases, not in
+  the main path (cost and latency).
+- Decision: tool name "JEV" kept exactly as Anat wrote it; verify in fact finding.
+- Two Task 2 assumptions added to the global Assumptions list.
+- Session log continued in `ai-chats/02-brainstorm.md` (no new 03 file).
+
 ## 2026-11-26: Brainstorm started (Task 1)
 
 - Brainstorm runs in scribe mode: Claude records Anat's ideas, todos and questions one

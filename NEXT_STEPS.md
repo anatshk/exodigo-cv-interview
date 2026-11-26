@@ -6,29 +6,24 @@ Resume pointer. Read this first.
 
 Brainstorming phase in progress. Claude acts only as a scribe: it lists Anat's ideas,
 todos and questions one item at a time and gives no input of its own, until Anat says
-the brainstorm is done. Task 1 (detect manholes in Street View panoramas, output
-geospatial detections) is fully brainstormed in `docs/BRAINSTORM.md`. Session log:
-`ai-chats/02-brainstorm.md`.
+the brainstorm is done. Task 1 (detect manholes, output geospatial detections) and Task 2
+(classify covers by type) are fully brainstormed in `docs/BRAINSTORM.md`. Session log:
+`ai-chats/02-brainstorm.md` (one file for the whole brainstorm, Task 2 appended).
 
 ## Pick up here
 
-1. Brainstorm Task 2 from `Interview_Preparation.pdf` (classification by cover type) into
-   `docs/BRAINSTORM.md`, scribe mode, one item at a time. Continue the log in
-   `ai-chats/02-brainstorm.md`, or start `03-...` if Anat asks.
-2. Then any remaining tasks in the PDF, then the Task 1 review.
-3. After brainstorming: check coverage against the PDF (every question addressed), do fact
-   finding on the open questions, then turn the output into phase 2 and 3 steps in
-   `docs/PLAN.md`.
+1. Go over the "points for consideration" in `Interview_Preparation.pdf` with Anat, adding
+   her notes to `docs/BRAINSTORM.md` in scribe mode. Continue the log in
+   `ai-chats/02-brainstorm.md`.
+2. Then any remaining tasks in the PDF, then the review of Task 1 and Task 2.
+3. After brainstorming: coverage check against the PDF (every question addressed), fact
+   finding on open questions (geospatial conversion, Street View camera fields, US manhole
+   standards, YOLO license, texture filter family, the tool Anat named "JEV"), visual
+   aids, then phase 2 and 3 steps in `docs/PLAN.md`.
 
 ## Open questions
 
 - Output format for the interview: slides, a design doc, or both? Still undecided.
-
-## Later requests from Anat
-
-- Review of Task 1; check that every PDF question is addressed; fact finding (verify the
-  geospatial ideas, Street View camera fields, US manhole standards, YOLO license);
-  visual aids.
 
 ## Non-git state
 

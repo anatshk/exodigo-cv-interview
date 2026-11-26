@@ -180,6 +180,100 @@ Verification step (after we have the covers' lat/lng):
 - Include one of the panoramas from `images/` in this section of the final writeup.
 - Add a link to the Ultralytics YOLO framework.
 
+## Task 2: Classify manhole covers by type
+
+### Problem understanding
+
+- Classes: from the given examples, the types are infrastructure types (sewer, water,
+  communication). There may also be differences between providers.
+- Data: a small set of representative examples per region. Not enough for model
+  training.
+- Input images: crops of the manhole covers with a bit of background, like the provided
+  examples.
+
+### Deterministic approach
+
+Feature extraction:
+
+- Shape: edge detector / Hough transform.
+- Text: OCR. Need to check how well it works on dirty or eroded covers.
+- Texture: classical texture filters (family to find later).
+- Size: actual size, if the pixel-to-mm ratio is known.
+- Color: a general color (black / gray / brown), not an exact RGB value.
+
+Feature vector:
+
+- Shape: one-hot (circle / square / rectangle).
+- Size: diameter, or max side.
+- Color: start with an RGB value, change to one-hot if needed.
+- Keywords: a vector of keywords (water / hot / sewer / storm). Build the dictionary and
+  expand it on real data.
+
+Clustering and labeling:
+
+- Check PCA first, to see if some signals are more relevant than others.
+- Cluster the images in the feature space.
+- See where the provided examples land, and whether they can label each cluster.
+- Label each cluster from representative examples, by a human or a VLM.
+- VLM prompt draft: "Describe the manhole cover in the image. What is its shape and
+  color? Does it have any text on it? Which of the provided infrastructure types would
+  you assign it and why?"
+  - The prompt can be engineered further, for example split into yes / no / unsure
+    questions to limit hallucinations.
+
+Alternative feature extraction (image encoder):
+
+- Run the crops through an image encoder (for example ResNet without the classification
+  layer) and use the output vector for clustering.
+- Easier way to capture shape, color, and texture.
+- Run OCR as a parallel step.
+- Then continue from the cluster labeling step above.
+
+### Non-deterministic approach
+
+Use VLMs and/or a tool like JEV for classification.
+
+VLM description route:
+
+- Ask a VLM to describe each image, with a prompt similar to the one in the cluster
+  labeling step above.
+- Request structured answers, so they can be encoded into feature vectors and clustered
+  as above.
+- Add an "unknown" option to each feature, to escalate to humans.
+- The feature vector encodings may change over a few iterations (adding keywords,
+  colors, shapes, etc.).
+- Possibly use a "word2vec"-like embedding space, so that gray squares sit together, far
+  from black circles. Anat is not sure about this.
+
+JEV:
+
+- A tool for making decisions. Open source versions exist.
+
+Cost and latency note:
+
+- Any method that uses LLMs / VLMs has a significant cost and latency.
+- So use them only to gather enough data to train a model, or limit them to unexpected
+  edge cases that need a non-deterministic approach the standard DL models can't
+  provide.
+
+### Open questions (to check)
+
+- Are the classes infrastructure types only, or also providers?
+- How well does OCR work on dirty or eroded covers?
+- Which family of classical texture filters to use?
+- Is the pixel-to-mm ratio known for the crops?
+- Is a "word2vec"-like embedding space useful for the VLM structured answers?
+- Can JEV (or a similar tool) be used here? Does it support an "unknown" option for
+  images outside the provided examples? Does it work on images, or do we need to convert
+  them to text first?
+
+### Todos
+
+- Find the family of classical texture filters.
+- Build the keyword dictionary, expand it on real data.
+- Read about JEV (or similar tools): fit for this task, "unknown" support, image or text
+  input.
+
 ## Todos
 
 ## Open questions
@@ -195,3 +289,6 @@ Verification step (after we have the covers' lat/lng):
 - Camera information is available (focal length, sensor pixel-to-mm factor, etc.), and
   the camera position is known (Task 1).
 - Infrastructure travels in straight lines most of the time (Task 1).
+- Task 2 input images are crops of the manhole covers with a bit of background, like the
+  provided examples (Task 2).
+- The labeled examples per region are too few for model training (Task 2).
