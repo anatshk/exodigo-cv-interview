@@ -28,6 +28,10 @@ Cover two cases: labels available, and no ground truth labels.
   License issue: production use requires paying Ultralytics (to be checked).
 - Before fine-tuning: check if the pre-trained model (natural images) already detects
   manhole covers as one of its default classes.
+- Choosing what to label: active learning, pick samples by model uncertainty (see Points
+  for consideration, point 3).
+- Augmentations (see point 3 for details): distortion or undistortion artifacts,
+  mirroring, rotation (check), lighting, obstructions (cut-out sections).
 - Labeling requests should consider weather and lighting conditions.
   - Not real time, so we can select daylight photos only for convenience and do not need
     to detect manhole covers at night.
@@ -77,6 +81,8 @@ Option 2 expanded (pretrained model plus logic):
 - Anat sees this as an intermediate step: use it for label extraction to train our own
   model, again because hard-coded logic is fragile.
 - Open mind: perhaps, as an off-the-shelf solution, it is good enough for a given task.
+- Open-vocabulary detectors (boxes from a text prompt) as candidates: Grounding DINO,
+  OWLv2, YOLO-World, moondream2, Qwen-VL. To check.
 - VLM to clean FPs (depending on cost), at least for a few iterations until we have
   enough labeled data:
   - Input: a crop of a detected object with a bit of background for context.
@@ -94,6 +100,18 @@ Combining with Case A:
 - The classical logic is fragile. Use its first versions as a data extractor for the DL
   detector (option 1), with error analysis on train/val data to fix "gt" errors.
 
+### Panorama input
+
+- Detection output: boxes are enough at this point (no masks).
+- Option: undistort the panorama before detection.
+  - Assume the road and sidewalk can easily be cut as the lower half of the image.
+  - Compare detection on undistorted vs still distorted lower halves.
+  - May not be required: YOLO perspective and shear augmentations may be enough.
+- Tiling: if the crop is too large, tile it instead of resizing too much. Save the
+  source of each tile (image, coordinates in the image). Run the detector in batches,
+  perhaps mixing tiles from several images for speed. The coordinate conversion then
+  goes tile, image, real world.
+
 ### Conversion to geospatial coordinates
 
 Anat has little experience here. Later: Claude to search and verify these ideas and
@@ -109,7 +127,7 @@ Inputs (assumed):
 Calculation idea:
 
 - From these, calculate the distance and angle from the camera position to each
-  detection box center.
+  detection box center. Take panorama distortions into account.
 - Use the camera lat/lng plus distance and angle to calculate the lat/lng of the box
   center.
 
@@ -119,6 +137,17 @@ Verification step (after we have the covers' lat/lng):
 - Fit straight lines through the detected covers in a given small area (town limits?).
 - Covers on a straight line with others get a higher score.
 - The detector score (how sure the detector is) can also be included in this score.
+- Line fitting method: maybe RANSAC, or a more modern alternative.
+
+Duplicate removal (after the covers have real-world coordinates):
+
+- One cover can appear in several nearby panoramas.
+- Keep the higher-confidence detection.
+- Assumption: covers can't overlap, and probably have a minimal distance between them.
+  Any overlapping detection boxes are duplicates.
+- Check edge cases, such as an overlap of a few pixels.
+- Do it per region, not on all detections (avoid comparing parallel streets). Method:
+  KD-tree, especially SciPy's cKDTree.
 
 ### Dataset setup
 
@@ -134,11 +163,33 @@ Verification step (after we have the covers' lat/lng):
 - Consider another layer of data organization (derived from lat/lng) based on
   infrastructure similarity, geographical location, town size, etc.
 
+### Output
+
+- Arrange the output in a format the next step ingests: lng/lat for a map overlay, or
+  GIS. The output module can also rearrange the data.
+- Calculate a "final confidence" here, and use it to affect how detections are
+  displayed on the final map (for example, a different color by score).
+
 ### Validation
 
 - Assume the system operates in the US only.
 - Validate geospatial coordinates against that, both in the raw input data and in the
   final output.
+- In the coordinate conversion module: a silent failure mode (does not stop the run)
+  that alerts if a detection is placed outside the stated region. It can indicate a
+  mistake in the calculation or in the raw data.
+- Evaluation levels (see point 5): validation and test sets per model, unit tests per
+  logic edge case, and a final comparison to real-world data (known infrastructure line
+  and covers, or covers marked by walking a street), if available.
+- Recall vs precision priority and threshold depend on whether covers are proxies for
+  the line or the actual goal.
+
+### Challenges (see point 6)
+
+- Data: panorama distortions, multiple cameras and configurations.
+- Lack of final ground truth (the infrastructure line).
+- Small coordinate and calculation errors that add up to significant differences.
+- The straight line assumptions may be wrong and add confusion instead of clarity.
 
 ### Ideas
 
@@ -156,6 +207,13 @@ Verification step (after we have the covers' lat/lng):
 - Does Google Street View provide camera details fields? (Anat remembers seeing them
   somewhere while using it in the past.)
 - Is the camera lat/lng resolution high enough for the conversion?
+- How to convert lat/lng to GIS coordinates? What is the difference between lng/lat for
+  a map overlay and a GIS format?
+- Which line fitting method: RANSAC, or a more modern alternative?
+- Is real-world ground truth available (known infrastructure lines and their covers, or
+  covers marked on site)?
+- Is recall or precision more important? Are the covers proxies for the infrastructure
+  line, or the actual goal?
 - How correct is the assumption that infrastructure travels in straight lines? Are there
   standard bend / corner angles?
 - What area should the line fitting use (town limits?). Are there other indicators that
@@ -174,6 +232,10 @@ Verification step (after we have the covers' lat/lng):
   Ultralytics.
 - Check the cost of the VLM FP-cleaning flow, and test it with different VLMs and
   prompts.
+- Check the open-vocabulary detectors: Grounding DINO, OWLv2, YOLO-World, moondream2,
+  Qwen-VL.
+- Find the name of the augmentation that cuts out a section of the image.
+- Read more on GIS formats.
 
 ### Writeup notes
 
@@ -190,6 +252,10 @@ Verification step (after we have the covers' lat/lng):
   training.
 - Input images: crops of the manhole covers with a bit of background, like the provided
   examples.
+- In the full system: the classifier gets only the detection crops (undistorted) and
+  returns a label per crop, added as a column to the detection list.
+- Evaluation: one confusion matrix for the detector plus classifier pipeline, showing
+  both detection and classification mistakes (see point 5).
 
 ### Deterministic approach
 
@@ -214,6 +280,10 @@ Clustering and labeling:
 - Check PCA first, to see if some signals are more relevant than others.
 - Cluster the images in the feature space.
 - See where the provided examples land, and whether they can label each cluster.
+  - Label clusters by distance to the provided examples, such as kNN.
+- Outliers: use the outlier detection method from the Similarweb take-home task to find
+  samples that are not in any cluster. Mark them for visual analysis (human or VLM).
+  This is also the "unknown" option for this route.
 - Label each cluster from representative examples, by a human or a VLM.
 - VLM prompt draft: "Describe the manhole cover in the image. What is its shape and
   color? Does it have any text on it? Which of the provided infrastructure types would
@@ -225,6 +295,8 @@ Alternative feature extraction (image encoder):
 
 - Run the crops through an image encoder (for example ResNet without the classification
   layer) and use the output vector for clustering.
+  - Any other encoder can be used, and compared if there is time. ResNet is ok for the
+    scope of this task.
 - Easier way to capture shape, color, and texture.
 - Run OCR as a parallel step.
 - Then continue from the cluster labeling step above.
@@ -256,9 +328,30 @@ Cost and latency note:
   edge cases that need a non-deterministic approach the standard DL models can't
   provide.
 
+### Challenges (see point 6)
+
+- Dirty or eroded covers affect image quality.
+- "Anonymous" covers that can't be classified.
+- In a given region, covers for different infrastructure types can look the same.
+- Some providers can be significantly underrepresented.
+
+### Single model option
+
+- If there is enough data: train another YOLO detector (Task 1) with the cover type
+  labels, instead of a separate classifier. Depends on data availability and labeling
+  cost (see point 3, Scopio example).
+
+### Classifier scope
+
+- One classifier for all regions, or several small classifiers, one per region.
+- So either one detector plus a classifier selected by area, or multiple YOLO models
+  (detector plus classifier) selected by region.
+- TBD after understanding the data and requirements.
+
 ### Open questions (to check)
 
 - Are the classes infrastructure types only, or also providers?
+- Which model to use for zero-shot classification?
 - How well does OCR work on dirty or eroded covers?
 - Which family of classical texture filters to use?
 - Is the pixel-to-mm ratio known for the crops?
@@ -270,9 +363,200 @@ Cost and latency note:
 ### Todos
 
 - Find the family of classical texture filters.
+- Check zero-shot classification models: OpenCLIP, SigLIP 2, alone and combined with
+  the provided examples as image prototypes.
 - Build the keyword dictionary, expand it on real data.
 - Read about JEV (or similar tools): fit for this task, "unknown" support, image or text
   input.
+
+## Points for consideration
+
+### 1. How would you define detection and classification problems in this context?
+
+- Covered by the problem definitions in the Task 1 and Task 2 sections above. No
+  additional notes.
+
+### 2. What data would you use, and how would you prepare it for this task?
+
+- Covered in detail in Task 1, and less in Task 2.
+- Main data preparation challenge: the geospatial conversion (Task 1, "Conversion to
+  geospatial coordinates").
+  - Calculate the position of panorama pixels relative to the camera, taking into
+    account camera parameters, panorama distortions, and the pixel-to-mm conversion.
+  - Use the JSON lat/lng as the camera location, and calculate the lat/lng of each
+    detected manhole cover.
+  - Open questions remain: what inputs are needed, and how to convert lat/lng to GIS
+    coordinates.
+- In-depth data understanding is needed to prevent leakage (Task 1, "Dataset setup").
+
+### 3. What type of models or learning paradigms would you consider, and why?
+
+- Several options and their trade-offs are detailed in Task 1 and Task 2.
+- At the end: suggest a single pipeline chosen from all the brainstorm options and
+  trade-offs.
+
+Gaps found by Claude, to address one at a time:
+
+- Task 1, other detectors and open-vocabulary detection:
+  - YOLO is a quick option. Open to other detectors because of licensing, performance,
+    or other limitations.
+  - Transformers are not required here. They are costly to train. Their benefit is that
+    they "see" the entire image, while CNNs are more local. There is an underground
+    connection between manhole covers, but it is not enough to justify a costly
+    transformer.
+  - Possible check: is a pretrained transformer better than a pretrained or fine-tuned
+    CNN? Do not re-train the transformer.
+  - Open question: is moondream2, or one of the Qwen models, useful for open-vocabulary
+    detection here? Claude's first answer: yes, both return boxes from a text prompt,
+    but they are slower and more costly than a CNN detector, likely need tiling, and can
+    hallucinate boxes. Best as a label generator for Case B. To check (see Todos).
+- Task 1, boxes or masks: masks give a more exact center and shape for the geospatial
+  conversion.
+  - Boxes are enough at this point.
+- Task 1, panorama input: full panorama, or undistorted tiles cut from it.
+  - Assume the road and sidewalk can easily be cut as the lower half of the image.
+  - Compare detection on the undistorted lower halves with detection on the still
+    distorted lower halves.
+  - The YOLO framework has perspective and shear augmentations, so the undistortion step
+    may not be required. Still, it is good to know it is an option.
+- Task 1, active learning: pick the samples to label by model uncertainty.
+  - Not mentioned before, but a good way to decide what to label. Likely to come up from
+    a leading question such as "how would you select what to label?".
+- Task 1, duplicates across panoramas: one cover can appear in several nearby
+  panoramas. How to merge these detections.
+  - An important stage (also in Anat's cell detector project on tiled data).
+  - Do it after the covers are detected and assigned real-world coordinates.
+  - Keep the higher-confidence detection.
+  - Assumption: manhole covers can't overlap, and probably have a minimal distance
+    between them. Any overlapping detection boxes are duplicates.
+  - Check edge cases, such as an overlap of a few pixels.
+- Task 1, augmentation.
+  - Distorted panoramas: simulate different locations in the camera FOV (different
+    distortion).
+  - Undistorted images: simulate the undistortion artifacts.
+  - Mirroring is ok.
+  - Rotation needs checking: don't create images that do not look like the real world.
+  - Lighting is required: brightness, or any combination that gives different weather
+    and time-of-day appearance.
+  - Obstructions: covers can be blocked by cars or pedestrians. Train with a section of
+    the image cut out (name of the method to find).
+- Task 2, few-shot paradigms: classify directly by distance to the provided examples in
+  embedding space (nearest neighbor, prototypes).
+  - Implied in the clustering route: the provided examples label the clusters based on
+    distance, such as kNN.
+  - Use the outlier detection method from Anat's Similarweb take-home task to find
+    samples that are not in any cluster, and mark them for visual analysis (human or
+    VLM).
+- Task 2, zero-shot classification: an image-text model compares the crop with text
+  labels.
+  - Not mentioned before. Open question: which model to use?
+- Task 2, "unknown" outside the VLM route: how the clustering or encoder route rejects
+  covers that match none of the provided examples.
+  - The outlier approach above covers this.
+- Task 2, encoder choice: compare other pretrained encoders with ResNet.
+  - ResNet is an example. Any other encoder can be used, and compared if there is time.
+    For the scope of this task, ResNet is ok.
+- Both tasks, one model or two: a single detector with one class per cover type, or a
+  separate detector and classifier.
+  - Yes, if there is enough data: train another YOLO detector with the specific cover
+    type labels. This saves the additional classification model.
+  - Depends on data availability. Example from the Scopio cell detector: the first idea
+    was a detector with about 60 labels, but some labels were very rare and labeling was
+    very costly (hundreds of normal cells to get one anomalous cell in the detection
+    ROI).
+  - Labeling cost in this detection task is lower, so this is definitely an option.
+
+### 4. What are the main components of the system, and how do they interact?
+
+The final system, in order:
+
+1. Image preprocessing (small module): crop ROIs, optionally undistort.
+   - Input: a path to the image (the module also loads the image), and the
+     undistortion parameters (if required).
+   - If the crop is too large, tile it after cropping: we don't want to resize the
+     input too much.
+   - Save the source of each tile (image, coordinates in the image).
+   - Output: an image, or a batch of images, for the detector.
+2. Detector.
+   - If tiling: work in batches until all tiles are processed. Perhaps mix tiles from
+     several images to optimize speed.
+   - Output: a collection of detections per image in the batch (local tile coordinates
+     per image).
+3. Coordinate conversion of the detected objects, given all the parameters listed in
+   Task 1.
+   - Input: all the detections, and the tile-to-image relationships.
+   - With tiling: tile coordinates, then image coordinates, then real-world
+     coordinates. Without tiling: only the last two steps.
+   - Output: a list of real-world coordinates of the detection boxes, with the detector
+     confidence.
+   - Verification: the system is assumed to operate in the US. A silent failure mode
+     (does not stop the run) alerts if the calculation places a detection outside the
+     stated region. This can indicate a mistake in the calculation or in the raw data,
+     to be addressed.
+4. Deduplication based on real-world coordinates.
+   - Optimize by doing it per region rather than on all detections (for example, avoid
+     comparing parallel streets).
+   - KD-tree is a good method, especially SciPy's cKDTree.
+   - Output: the same list of coordinates and confidence, deduplicated.
+5. "Straight line checker": combines the detection score with a score for how well each
+   detection aligns with other detections. Maybe RANSAC, or a more modern alternative.
+   - Output: the same list, with an additional score column.
+6. Classifier. Can later be merged with the detector into one detector plus classifier
+   model, like YOLO.
+   - Input: only the detection crops (undistorted).
+   - Output: a label per crop, added as a column to the detection list.
+7. Output formatting: arranges the output in a format the next step ingests, for
+   example lng/lat for a map overlay, or GIS (read more on GIS to understand the
+   difference). This module can also rearrange the data.
+   - Input: the detection list, with scores and labels.
+   - Calculate a "final confidence" here, and use it to affect how detections are
+     displayed on the final map, for example a different color by score.
+
+### 5. How would you measure whether the system is successful?
+
+Several levels:
+
+- Validation and test sets for each component model.
+- Unit tests for any logic, adding a test per edge case encountered.
+- Final test (if at all possible): comparison to known real-world data.
+  - Ground truth of an infrastructure line and its manhole covers, or
+  - Walk a specific street, mark the exact coordinates of the manhole covers, and
+    compare to that.
+  - Not sure this data is available at all.
+
+Individual model evaluation:
+
+- Find out whether recall or precision is more important, then which threshold is
+  relevant for the task.
+- If the covers are only proxies for the actual infrastructure line, missing one or two
+  is ok, as long as the final line is located correctly. If the covers are the actual
+  goal, the threshold rises.
+- The detector plus classifier pipeline can be measured with one confusion matrix that
+  shows both detection and classification mistakes.
+
+### 6. What are the main challenges or failure modes you anticipate?
+
+Detection and geospatial output (Task 1):
+
+- Data: distortions from panorama mode, multiple cameras and configurations, etc.
+- Lack of final ground truth (the infrastructure line).
+- Small mistakes or inaccuracies in coordinates and calculations that add up to
+  significant differences.
+- The "straight line" module is a question mark: its inherent assumptions may be wrong,
+  so it can add confusion instead of clarity.
+
+Classification (Task 2):
+
+- Covers can be dirty or eroded, which affects image quality.
+- Covers can be "anonymous", so we can't classify them.
+- In a given region, covers for different infrastructure types can look the same.
+- Some providers can be significantly underrepresented.
+
+Classifier scope, TBD after understanding the data and requirements:
+
+- One classifier for all regions, or several small classifiers, one per region.
+- So either one detector plus a classifier selected by area, or multiple YOLO models
+  (detector plus classifier) selected by region.
 
 ## Todos
 
@@ -289,6 +573,9 @@ Cost and latency note:
 - Camera information is available (focal length, sensor pixel-to-mm factor, etc.), and
   the camera position is known (Task 1).
 - Infrastructure travels in straight lines most of the time (Task 1).
+- The road and sidewalk can easily be cut as the lower half of the panorama (Task 1).
+- Manhole covers can't overlap, and probably have a minimal distance between them
+  (Task 1).
 - Task 2 input images are crops of the manhole covers with a bit of background, like the
   provided examples (Task 2).
 - The labeled examples per region are too few for model training (Task 2).

@@ -103,3 +103,99 @@ i want to add that any method using llms/vlms has a significant cost factor and 
 ## Assistant
 
 I added a "Cost and latency note" to the Task 2 non-deterministic approach in `docs/BRAINSTORM.md`: LLMs / VLMs only to gather training data, or limited to unexpected edge cases. Then I ran the handover and committed. Next: the PDF's points for consideration.
+
+## User
+
+reminder, i'm working on a take home interview task, your role is to take notes, do not provide any input unless specifically requested. i finished going over task 1 and 2, now i'm going over points of consideration. i'll add notes for each point, if needed. you can add a section for "points for consideration" in the @docs/BRAINSTORM.md but i'll also require you to add to previous sections if needed. are you ready for the first point?
+
+## Assistant
+
+I added an empty "Points for consideration" section to `docs/BRAINSTORM.md`, after Task 2. Ready for the first point. I will also add to earlier sections when a note belongs there.
+
+## User
+
+the first point is "How would you define detection and classification problems in this context?" - i think i defined the problems well in task 1/2 sections above, so i'm skipping to the next point (note this statement for the first point).
+
+## Assistant
+
+I noted point 1 in `docs/BRAINSTORM.md` as covered by the Task 1 and Task 2 sections. Ready for the next point.
+
+## User
+
+"What data would you use, and how would you prepare it for this task?" - i went into detail for task 1 and a bit less for task 2. i think the main point that should be mentioned again is the calculation of relative positions of pixels in panorama images from the camera (taking into consideration camera parameters, panorama distortions, pix2mm conversions), then taking the lon/lat from json as the camera location and calculating the lon.lat of each detected manhole cover. there are still some open questions on what is needed and how to convert lon/lat to gis coordinates, but that's the main challenge in data preparation. additionally, some in-depth data understanding is required to prevent leakage, all detailed in task 1. this is my reply to point 2, is there anything that needs to be added to task 1/2?
+
+## Assistant
+
+I added point 2 to `docs/BRAINSTORM.md`. Two items were new, so I also added them to Task 1: panorama distortions in the conversion calculation, and an open question on converting lat/lng to GIS coordinates. Nothing new for Task 2.
+
+## User
+
+next point is "What type of models or learning paradigms would you consider, and why?". I think i detailed several options and the trade-offs, at the end i'd like to suggest a single pipeline rom all of the brainstorming options and trade-offs. is there anything missing? do not fill in anything, just tell me what's missing and i'll fill in if needed.
+
+## Assistant
+
+I recorded point 3 in `docs/BRAINSTORM.md` (options covered in Task 1 and 2, single pipeline at the end). Gaps listed for Anat (not written to the doc): detector alternatives and open-vocabulary detectors, boxes vs segmentation, panorama input handling, active learning, multi-view deduplication, few-shot / nearest-neighbor and zero-shot classification for Task 2, open-set "unknown" for the non-VLM route, one multi-class detector vs separate detector and classifier.
+
+## User
+
+i'll address these one at a time, note these under the current point. other detectors - YOLO is a quick option, I'm open to consider other detectors whether due to licensing, performance or other limitations. however, i don't think transformers are required in this case. transformers are costly to train, and their benefit is that they "see" the entire image, unlike CNNs that are more local. while there is an underground connection between manhole covers, i don't think it's enough to use a costrly transformer. I could check if a pre-trained transformer is better that a pretrained or finetuned CNN, but not re-train it. re: open-vocabulary detection, is moondream2 useful here, or one of the QWEN models?
+
+## Assistant
+
+I listed the gaps under point 3 in `docs/BRAINSTORM.md` and recorded Anat's notes on other detectors, with the moondream2 / Qwen question as an open question. Answer given in chat: both are VLMs that can return boxes from a text prompt (grounding), so both can work for open-vocabulary detection. Trade-offs: slower and more costly per image than a CNN detector, small covers in a large panorama likely need tiling, and output must be checked for hallucinated boxes. Fits best as a label generator (Case B options 1 and 2), not the production detector.
+
+## User
+
+list to check the open-vocabulary detectors you suggested. next is the "Boxes or masks" - boxes are enough at this point. Panorama input - this is a good point, i want to suggest the following flow - assuming we can easily cut the road/sidewalk as the lower half of the image, i would compare the detection on the undistorted lower halves to the still-distorted lower haves. theYOLO i mentioned has augmentations that allow for perspective and shear changes, so maybe the undistortion step is not required, but it's good to know that is an option. please list the undistortion as an option for task 1. Choosing what to label - i did not mention active learning, but this is a great way to decide what to label, i would probably get there from a leading question of "how would you select what to label". Duplicates across panoramas - important stage i had in my cell detector on tiled data project. after the manhole covers are detected and assigned real-world coordinates is a good stage for duplication removal, keep the higher-confidence examples, under the assumption that manhole covers can't overlap (and probably have a minimal distance definition as well) - any overlapping detection boxes are considered duplicated (check edge cases such as few-pixel overlap). Augmentation: if using the distorted panorama images, we can simulate different locations on the camera fov (different distortion). if undistorted - simulate any undistortion artifacts. other than that - mirroring is ok, rotation should be exhamined as we don't want to create images that don;t resemble the real world. lighting is definitely a requred augmentation - brightness for example, or any combination that allows for different weather/time-of-day apeparance. perhaps obstructions as well - manhole covers can be blocked by cars or pedestrians, so training with a section cut out (can't remember the name, mixoff?) can help. next is task 2, but first write the above under the current point and add mentions in the task 1 sections if needed.
+
+## Assistant
+
+I recorded the answers under point 3 in `docs/BRAINSTORM.md`. In Task 1 I added: open-vocabulary detector candidates (Case B option 2), active learning and augmentations (Case A), a new "Panorama input" subsection with undistortion as an option, duplicate removal after the geospatial conversion, two todos (check the open-vocabulary detectors, find the cut-out augmentation name), and two assumptions (lower half is road and sidewalk, covers don't overlap).
+
+## User
+
+Few-shot paradigms: i did not mention this explicitly, but for me it was implied that given unsupervised clustering with a few provided examples - the examples are used to label clusters based on distance such as knn. similarly, i'll use the outlier detection method i used in the similarweb takehome task to find which samples are not in any cluster and mark them for visual analysis (by human or vlm). Zero-shot classification: i did not mention it, what model would you suggest for this task? "Unknown" outside the VLM route: i think the outlier approach is good here. Encoder choice: resnet is an example, any other encoder can be used if there is time to do a comparison on this step as well, but for the scope of this task it's ok i think. One model or two: yes, definitely, if we have enough data, we could train another YOLO detector that has the specific labels, but this is something that depends on data availability, when working onm the cell detector at Scopio our first idea was to train the detector on ~60 labels, but some of these labels were very rare and data was very costly to label (hundreds of normal cells just to get one anomalous cell in the detection roi). the labeling cost in the detection task is lower, so this is defintely an option that then saves us from using an additional model.
+
+## Assistant
+
+I recorded the answers under point 3 in `docs/BRAINSTORM.md`, and added to Task 2: kNN cluster labeling and the outlier step (also the "unknown" option), the encoder note, a "Single model option" subsection, and an open question on the zero-shot model. Answer given in chat: CLIP-family models (OpenCLIP, SigLIP 2), with text prompts per cover type, possibly combined with the provided examples as image prototypes; risk that fine-grained or provider-specific types are weak in text form.
+
+## User
+
+add zero-shot models to the list to check. next point for consideration is "What are the main components of the system, and how do they interact?". the final system has a small image preproc module (cropping rois, optionally undistorting), a detector, a module for converting coordinates (given all the parameters i mentioned in task 1) of detected objects, then a dedup module based on real-world coordinates, and a "straight line checker" - which combines the detection score with a score representing if each detection is aligned with other detections - maybe ransac or a more modern alternative). next is a classifier (that can be incorporated into a detector+clasisifer model like yolo later on). finally a module that arranges the output into a format that is ingested by the next step - lets say lng/lat for map overlay or GIS (but i need to read more on GIS to understand the difference). the last model can also rearrange the data. btw, the classifier can be one-for-all that works for all regions, or a collection of several small classifiers, one per region. this either means one detector and classifier selected by area, or multiple yolo models (det+cls) selected by region, TBD after understanding the data and requirements.
+
+## Assistant
+
+I added point 4 to `docs/BRAINSTORM.md` (seven components in order, and the classifier scope). In Task 1 I added RANSAC to the line fitting, a new "Output" subsection, two open questions (map overlay vs GIS, line fitting method), and a todo to read on GIS. In Task 2 I added a "Classifier scope" subsection and a todo to check the zero-shot models.
+
+## User
+
+before the next point:  how the components interact, i'll mention the inputs and outputs of the final system, list them under each section. Image preprocessing - input is a path to image, so this module will also load the image and tile it after cropping if the crop is too lage as we don;t want to resize the input too much. if tiling, the detector should work in batches until all tiles are processed, and perhaps mix tiles from several images to optimize speed, and the source of each tile (image, coords in image) should be saved. output is an image (or a batch of images) for the detector. another input are the undistortion parameters (if requird). the detector output is a collection of detecttion per image in batch (local tile coordinates per image). the coordinate conversion module recieves all of the detections and the tile-to-image relationships and converts into real-world coordinates, if tiling, then its tile coords --> image coords --> real world coords, if no tile then just the last two steps. the output is a list of real-world coordinates of the detection boxes,  with the detector confidence. the dedup can be optimized and done by region rather than on all the detections (avoid comparing parallel street for example), kdtree is a good method for dedup, especially when using ckdtree method. the output is the same list of coordinates and conficence, just deduped. straight line checker returns the same list, just with an additional score column. the classifier gets only the detection crops (undistorted) and returns a label for each that is then added as a column to the detection list. the output formatting gets the detections list (with scores and labels) and arranges them in the required format, this is where we can calculate "final confidence" and use that to affect the way the detections are displayed in the final map - perhaps different color based on the score.
+
+## Assistant
+
+I added inputs and outputs under each of the seven components in point 4 of `docs/BRAINSTORM.md`. In Task 1 I added tiling to "Panorama input", per-region cKDTree deduplication, and the final confidence to "Output". In Task 2 I added the classifier input and output in the full system.
+
+## User
+
+"How would you measure whether the system is successful?" - there are several levels to that, validation and test sets for each of the component models, unitests for any logic (adding test per edge case encountered), but the final test (if at all possible) should be comparison to known real world data. if we have gt of an infrastructure line and its manhole covers, we can compare to that, or, if we can walk a specific street and mark the exact coordinates of the manhole covers, and compare to that. however, i'm not sure if this data is available at all. for the individual model evaluations, i would like to know if recall or precision is more important, and then understand what threshold is relevant for the task. i assume that if the manhole covers are just proxies to the actual infrastructure line, then missing one or two is ok, as long as the final line is located correctly, but if they are the actual goal, the threshold rises. the det+cls pipeline can be measured from a confusion matrix that represents both detection and classification mistakes.
+
+## Assistant
+
+I added point 5 to `docs/BRAINSTORM.md` (evaluation levels, and model evaluation). In Task 1 I added the evaluation levels to "Validation" and two open questions (real-world ground truth availability, recall vs precision and proxies vs goal). In Task 2 I added the combined confusion matrix.
+
+## User
+
+"What are the main challenges or failure modes you anticipate?" - i think data may be a challenge. distortions from panorama mode, multiple cameras and configurations, etc. lack of final GT (the infrastructure line). small mistakes or innacuracies in coordinates and calculations that add up to significant differences. the "straight line" module is also a question mark that can add confusion instead of clarity due to inherent assumptions that may be wrong. the classification - covers can be dirty or eroded, which affects image quality. covers can also be "anonymous" in a way that we won;t be able to classify them, or in a certain region, covers for different infrastructure can look the same. some providers can be significantly underrepresented.
+
+## Assistant
+
+I added point 6 to `docs/BRAINSTORM.md`, split into detection and classification challenges, and added a short "Challenges" subsection to Task 1 and to Task 2.
+
+## User
+
+that was the final point, but i want to add to the coordinate conversion module a comment on verification - it is said that i can assume the system operates in the US - ther should be a silent failure mode that alerts if the calculation places a detection outside of the stated region - it can indicate mistake in calculation or in the raw data that should be addressed.
+
+## Assistant
+
+I added the out-of-region alert to the coordinate conversion component (point 4) and to Task 1 "Validation" in `docs/BRAINSTORM.md`.

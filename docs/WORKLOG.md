@@ -3,6 +3,24 @@
 Reverse-chronological, newest first. Concise highlights: what was done and the decisions
 made, not a blow-by-blow.
 
+## 2026-11-26: Points for consideration brainstormed
+
+- New "Points for consideration" section in `docs/BRAINSTORM.md` covers all six PDF points:
+  problem definition, data and preparation, models and learning paradigms (with gaps Claude
+  found on request, each answered by Anat), system components (7, with inputs and outputs:
+  tiling, detector, coordinate conversion with out-of-US alert, dedup by region with
+  cKDTree, RANSAC straight line checker, classifier, output formatting with final
+  confidence), success measurement, challenges and failure modes.
+- Task 1 and Task 2 sections extended with the new items (open-vocabulary detectors, active
+  learning, augmentations, panorama input, duplicate removal, output, challenges, kNN
+  cluster labeling, outlier step, classifier scope, zero-shot option), plus new open
+  questions, todos and assumptions.
+- Decision: points are recorded in their own section and cross-referenced into the task
+  sections, as Anat asked.
+- Decision: Claude's factual answers were from memory, so they are listed as todos for
+  fact finding.
+- Anat plans to propose one final pipeline from all options at the end.
+
 ## 2026-11-26: Task 2 brainstormed
 
 - `docs/BRAINSTORM.md` has a new Task 2 section (classify covers by type), scribe mode:
