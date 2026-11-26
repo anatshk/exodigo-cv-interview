@@ -3,6 +3,27 @@
 Reverse-chronological, newest first. Concise highlights: what was done and the decisions
 made, not a blow-by-blow.
 
+## 2026-11-26: PDF review and write-up draft
+
+- Brainstorm reviewed against the PDF. Added to `docs/BRAINSTORM.md`: parameter tuning
+  (out of current scope), known objects database per region and duplicates over time,
+  provider dictionary in output, metadata assumptions (equirectangular, tilt ~90 = level,
+  camera height plus flat ground), triangulation from multiple images, Task 2 as
+  unsupervised/semi-supervised. Sensor estimations are weak labels only if the system is
+  not meant to add confidence to them (otherwise leakage).
+- `WRITEUP.md` draft (README points to it): final system first, then labeling and training,
+  parameter selection, evaluation, challenges, assumptions, open questions. Module 5 renamed
+  "Confidence reviewer" (straight-line score plus years-seen score from the known objects
+  database).
+- Decision: write-up is `WRITEUP.md`, not README (Anat's choice). Draft first, fact
+  finding after, unverified items marked "(to verify)".
+- Decision: pipeline diagram is a hand-drawn SVG, not Mermaid: Mermaid drops the row layout
+  when a node links across rows. SVGs have explicit width/height so they render large in
+  Obsidian.
+- Finding: all 5 sample panoramas are one Detroit intersection (2007 to 2025); PNGs are
+  4:1 strips while the metadata says 2:1. Recorded as a question for Exodigo.
+- Anat edits write-up text; Claude does visuals. No PRs in this repo.
+
 ## 2026-11-26: Points for consideration brainstormed
 
 - New "Points for consideration" section in `docs/BRAINSTORM.md` covers all six PDF points:
