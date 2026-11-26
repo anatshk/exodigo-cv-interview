@@ -4,8 +4,6 @@
 Google Street View panoramas, classify them by type, and output them as a geospatial
 layer that can be compared with sensor-based estimations (US only).
 
-Items marked *(to verify)* are not checked yet.
-
 **Contents**
 
 1. [The final system](#1-the-final-system)
@@ -15,6 +13,7 @@ Items marked *(to verify)* are not checked yet.
 5. [Challenges and failure modes](#5-challenges-and-failure-modes)
 6. [Assumptions](#6-assumptions)
 7. [Open questions](#7-open-questions)
+8. [Terms](#8-terms)
 
 ## 1. The final system
 
@@ -22,12 +21,12 @@ Items marked *(to verify)* are not checked yet.
 
 | # | Module | Input | Output |
 |---|---|---|---|
-| 1 | Preprocessing | Image path, undistortion parameters (optional) | Road ROI tiles, each with its source (image, position) |
+| 1 | Preprocessing | Image path, IPM parameters (optional) | Road ROI tiles, each with its source (image, position) |
 | 2 | Detector | Batches of tiles (mixed across images for speed) | Boxes + confidence, in tile coordinates |
 | 3 | Pixel to lat/lng | Detections, tile-to-image map, metadata | Lat/lng per detection + confidence |
-| 4 | Deduplication | Lat/lng list, known objects database | Same list, one entry per physical cover |
+| 4 | Deduplication + triangulation | Lat/lng list, known objects database | Same list, one entry per physical cover, location refined from all its views |
 | 5 | Confidence reviewer | Deduplicated list, known objects database | Same list + line and years-seen scores |
-| 6 | Classifier | Undistorted crop per detection | Same list + type label (or "unknown") |
+| 6 | Classifier | IPM crop per detection | Same list + type label (or "unknown") |
 | 7 | Output | Full list | GIS layer / map overlay, final confidence |
 
 ### 1.1 Preprocessing
@@ -39,30 +38,56 @@ instead of resizing, so that small, distant covers are not lost.
 ![Road ROI on a sample panorama](docs/figures/panorama_roi.jpg)
 *Sample panorama, Detroit 2025. Red boxes: covers marked by hand for illustration.*
 
-Undistortion of the ROI is optional. Compare detection on distorted and undistorted ROIs;
-YOLO perspective and shear augmentations may make it unnecessary.
+IPM of the ROI (see [Terms](#8-terms)) is optional. Compare detection on the raw ROI and
+on the IPM view; YOLO perspective and shear augmentations may make it unnecessary.
+(NOTE: fact checking showed that the YOLO transformations cannot simulate panoramic
+distortion, so the augmentations need to be re-examined.)
 
 ### 1.2 Detector
 
 One class: manhole cover. Ultralytics YOLO fine-tuned on our labels: fast, easy to
-fine-tune, and familiar. License for production use *(to verify)*.
+fine-tune, and familiar. License: AGPL-3.0, and models trained with it are AGPL too.
+Closed commercial use needs a paid Enterprise license. Fallback with a permissive license:
+RF-DETR (Apache 2.0 for the Nano to Large detection sizes).
 
 ### 1.3 Pixel to lat/lng
 
 ![Pixel to ground geometry](docs/figures/pixel_to_ground.svg)
 
-- The panorama is equirectangular *(to verify)*, so each pixel maps directly to an angle.
-  Caution: the metadata says 13312 x 6656 (2:1), but the sample files are 4:1 strips
-  (about ±45° around the horizon). The vertical angle per pixel must come from the real
+- The panorama is equirectangular (2:1 tiles in the Street View Tiles API), so each pixel
+  maps directly to an angle. Caution: the metadata says 13312 x 6656 or 16384 x 8192
+  (2:1), but the sample files are 4:1 strips at 1/4 of the width and 1/8 of the height:
+  360° x 90°, ±45° around the horizon (checked on the samples: the far ends of the
+  streets are on the middle row). The vertical angle per pixel must come from the real
   image, not the metadata size, or every distance is wrong.
 - Vertical angle below the horizon + camera height + flat ground → distance `d`.
 - Horizontal angle + `heading` → bearing.
 - Camera lat/lng moved `d` meters along the bearing → cover lat/lng.
 - **Sanity check:** a silent alert (the run continues) when a cover lands outside the US.
   It points to a bug in the calculation or bad raw data.
-- **Improvement step:** triangulation. A cover seen in several nearby panoramas can be
-  located more exactly by combining the views, instead of one view plus a flat-ground
-  assumption.
+- **Size check:** US covers are about 0.55 to 0.9 m across (22 to 36 in; no national
+  standard, each agency sets its own). A detection whose box size, at its computed
+  distance, is far outside this range is suspect: lower its confidence.
+- **Camera configuration:** the configuration with which the images were taken is
+  unclear. What we know:
+  - Camera height: about 2.5 m (not an official figure; may differ between camera
+    generations).
+  - Camera lat/lng: the GPS accuracy is not published.
+  - `heading`: compass direction, clockwise from north (Street View Tiles API). Which
+    image column it maps to is not documented.
+  - `tilt` / `roll`: degrees, `tilt` 90 = level. They are corrections already applied:
+    the horizon is on the middle row in the samples.
+  - A small angle error grows fast with distance: with a 2.5 m camera, a 0.5° error
+    moves a cover about 0.4 m at 10 m, about 1.5 m at 20 m, and about 3.5 m at 30 m.
+
+  Combining information from several images lowers this uncertainty (triangulation,
+  next).
+- **Triangulation (main location method):** panoramas are taken every 10 to 20 m, so
+  most covers are seen in several of them. Intersect the bearings from all views of
+  the same cover. This needs neither the camera height nor flat ground, and the GPS
+  error between neighbor panoramas is smaller than the absolute error. The single view
+  estimate is still used to match the views of one cover (module 4), and as the
+  location of covers seen only once (with a lower confidence).
 
 ### 1.4 Deduplication and known objects database
 
@@ -76,7 +101,7 @@ seasons, and the road was repaved by 2020.*
 - Covers can't overlap and have a minimum distance between them, so detections closer
   than a radius are one cover. Keep the highest confidence one.
 - Search per region with a KD-tree (SciPy `cKDTree`), so parallel streets are never
-  compared.
+  compared. Convert lat/lng to meters first if needed.
 - A **known objects database** (per region, to stay small) stores each cover with its
   location, type and confidence. New detections are matched against it.
 - A cover seen in several years gets a higher confidence. A cover seen once may be a
@@ -87,9 +112,9 @@ seasons, and the road was repaved by 2020.*
 Adds two confidence scores to each cover:
 
 - **Straight lines:** utility lines mostly run straight. Fit lines through the covers of
-  a small area (RANSAC or a newer method *(to verify)*). A cover on a line with others
-  gets a higher score. This is the weakest assumption in the system: it may add noise
-  instead of clarity.
+  a small area (multi-model fitting, sequential RANSAC for example). A cover on a line
+  with others gets a higher score. This is the weakest assumption in the system: it may
+  add noise instead of clarity.
 - **Years seen:** from the known objects database. A cover seen at the same place in
   several years gets a higher score.
 
@@ -99,7 +124,9 @@ Adds two confidence scores to each cover:
 *Examples given for one region. They show local conventions, not a fixed label set.*
 
 - **Problem type:** semi-supervised, open-set classification. A few labeled examples
-  per region, the label set may grow, and "unknown" is a valid output.
+  per region, the label set may grow, and "unknown" is a valid output. Semi-supervised:
+  the unlabeled crops are clustered, and the few labeled examples label the clusters
+  (see 2.4).
 - **Method:**
   1. Embed each crop with a pretrained image encoder (for example ResNet without its
      last layer). Run OCR in parallel: text such as "WATER" or "SEWER" is a strong
@@ -112,7 +139,9 @@ Adds two confidence scores to each cover:
 
 ### 1.7 Output
 
-- Format: a GIS layer or map overlay *(format to verify)*.
+- Format: GeoJSON (RFC 7946): one point per cover, WGS84, coordinates in [lng, lat]
+  order, with type, provider and confidence as properties. GIS tools (QGIS, ArcGIS) and
+  web maps both read it, so one file serves both. For very large layers: GeoPackage.
 - A final confidence per cover (detector, years seen, line score, classifier), shown on
   the map, for example as color.
 - A provider dictionary converts the label to what users want to see: type only, or type
@@ -147,19 +176,21 @@ and the classifier.
 | Case | Approach |
 |---|---|
 | Labels exist | Train directly. Choose what to label next by model uncertainty (active learning). |
-| No labels | Bootstrap: an open-vocabulary detector (Grounding DINO, OWLv2, YOLO-World *(to verify)*) proposes boxes; a VLM answers "Is this a manhole cover? yes / no / unsure" on each crop; humans check samples per cluster and outliers. Then train our own detector. |
+| No labels | Bootstrap: an open-vocabulary detector (Grounding DINO, YOLO-World, YOLOE; "manhole" is already an LVIS class, so the LVIS-trained ones may detect covers directly) proposes boxes; a VLM answers "Is this a manhole cover? yes / no / unsure" on each crop; humans check samples per cluster and outliers. Then train our own detector. |
 
 Why not keep the bootstrap as the final system: open-vocabulary detectors and VLMs are
 slow and costly per image, and hand-written filter logic breaks on edge cases as the data
-grows. Classical shape detection (Hough circles, edge detection) is a fallback, not the
-main path.
+grows. Classical shape detection (circle/ellipse detection, Hough transform for example,
+and edge detection) is a fallback, not the main path.
 
 ### 2.3 Augmentations
 
 - Distortion: covers at different positions in the panorama look different.
 - Mirroring: yes. Rotation: only small, so images still look real.
 - Lighting: brightness and color, for weather and time of day.
-- Occlusion: cut out patches (cars and people cover manholes) *(method name to verify)*.
+- Occlusion: Cutout / Random Erasing (cut out patches; cars and people cover manholes).
+  Ultralytics `erasing` is for classification only, so for the detector use
+  Albumentations `CoarseDropout`.
 
 ### 2.4 Classifier labels
 
@@ -216,9 +247,9 @@ to them. Otherwise using them is leakage.
 | US only | Stated in the task. |
 | Daylight images are enough | Not real time; we choose which images to use. |
 | The road is below the horizon line, at about the same height in all panoramas | Seen in the samples. |
-| Panoramas are equirectangular; `tilt` is in degrees, about 90 = level | Metadata is 2:1 (13312 x 6656) and tilt values are near 90 *(to verify)*. |
-| The sample PNGs are a 4:1 strip of the full panorama | Sample files are 4096 x 1024 or 3328 x 832, while metadata says 2:1 *(to verify)*. |
-| Camera height is known, ground near the camera is flat | Needed for distance from one view. |
+| Panoramas are equirectangular; `tilt` is in degrees, 90 = level | Metadata is 2:1 (13312 x 6656 or 16384 x 8192), as in the Street View Tiles API, which also defines `tilt` (see 1.3). |
+| The sample PNGs are a 4:1 strip of the full panorama, ±45° around the horizon | Sample files are full width / 4 and full height / 8 (4096 x 1024 or 3328 x 832), so 360° x 90°; the horizon is on the middle row in the samples. |
+| Camera height is about 2.5 m, ground near the camera is flat | Needed for distance from one view only (covers seen once, and matching views); triangulation does not need it. |
 | Utility lines mostly run straight | Basis of the line checker. |
 | Covers don't overlap and have a minimum spacing | Basis of deduplication. |
 | Too few labeled cover examples per region to train a classifier | Stated in the task. |
@@ -237,10 +268,13 @@ to them. Otherwise using them is leakage.
 
 **To verify (fact finding)**
 
-- Street View projection, camera height, and the meaning of `heading` / `tilt` / `roll`.
-- Is the camera lat/lng accurate enough?
-- US manhole size and shape standards.
-- GIS output format.
-- Ultralytics license; open-vocabulary detectors; zero-shot classifiers (OpenCLIP,
-  SigLIP 2).
-- Line fitting method.
+- Camera height and camera lat/lng accuracy (not published, see 1.3).
+- Which image column `heading` maps to (center or left edge).
+- Zero-shot classifiers (OpenCLIP, SigLIP 2): names checked; how well they classify
+  covers needs a test on real crops.
+
+## 8. Terms
+
+- **IPM (inverse perspective mapping):** reprojects the road part of the panorama to a
+  bird's-eye view (a view from above). In this view a round cover looks round again, and
+  pixel distances on the road are close to distances in meters.

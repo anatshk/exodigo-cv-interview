@@ -25,12 +25,16 @@ Cover two cases: labels available, and no ground truth labels.
 
 - Images with detection boxes (xywh). Train a detector model.
 - Framework: Ultralytics YOLO (Anat has experience with it; should be easy to fine-tune).
-  License issue: production use requires paying Ultralytics (to be checked).
+  License issue: production use requires paying Ultralytics. Checked: AGPL-3.0, and
+  models trained with it are AGPL too; closed commercial use needs a paid Enterprise
+  license. Fallback: RF-DETR (Apache 2.0 for the Nano to Large detection sizes).
 - Before fine-tuning: check if the pre-trained model (natural images) already detects
-  manhole covers as one of its default classes.
+  manhole covers as one of its default classes. Checked: not in COCO, Objects365 or
+  Open Images; yes in LVIS (class 667), so YOLO-World / YOLOE with an LVIS vocabulary
+  may detect covers directly.
 - Choosing what to label: active learning, pick samples by model uncertainty (see Points
   for consideration, point 3).
-- Augmentations (see point 3 for details): distortion or undistortion artifacts,
+- Augmentations (see point 3 for details): distortion or IPM artifacts,
   mirroring, rotation (check), lighting, obstructions (cut-out sections).
 - Labeling requests should consider weather and lighting conditions.
   - Not real time, so we can select daylight photos only for convenience and do not need
@@ -53,7 +57,8 @@ Three options:
 
 Classical method (brute force):
 
-- Round covers: Hough transform on the lower half of the image.
+- Round covers: circle/ellipse detection (Hough transform, for example) on the lower half
+  of the image.
   - Narrows the region of interest: fewer mistakes and shorter runtime.
   - Relies on the assumption that all Street View cameras are similarly calibrated. In
     the examples, a horizontal line at about the same place separates road and sidewalk
@@ -62,12 +67,12 @@ Classical method (brute force):
 - Why shape and not color: covers can be metal, which reflects sunlight and changes
   color. Example: image `Kk0_Hzv4bQc2ha7esbEDcw`.
 - Needs iterations and human error analysis to develop false positive exclusion logic.
-- Needs iterations on the Hough / edge detection parameters: the panorama can distort
-  shapes, so some tolerance is needed.
+- Needs iterations on the circle/ellipse / edge detection parameters: the panorama can
+  distort shapes, so some tolerance is needed.
 
 Reducing human involvement:
 
-- Extract a box around each unlabeled candidate (include some background).
+- Extract a box around each unlabeled candidate (include some background) from the classical method.
 - Extract features from the object and from the background, in both RGB and grayscale.
 - Cluster the candidates in feature space.
 - Look at a few samples per cluster and at the outliers, to help define what is and is
@@ -103,10 +108,13 @@ Combining with Case A:
 ### Panorama input
 
 - Detection output: boxes are enough at this point (no masks).
-- Option: undistort the panorama before detection.
+- Option: IPM (inverse perspective mapping: panorama to bird's-eye view) before
+  detection.
   - Assume the road and sidewalk can easily be cut as the lower half of the image.
-  - Compare detection on undistorted vs still distorted lower halves.
+  - Compare detection on IPM vs raw lower halves.
   - May not be required: YOLO perspective and shear augmentations may be enough.
+    (NOTE: fact checking showed that the YOLO transformations cannot simulate panoramic
+    distortion, so the augmentations need to be re-examined.)
 - Tiling: if the crop is too large, tile it instead of resizing too much. Save the
   source of each tile (image, coordinates in the image). Run the detector in batches,
   perhaps mixing tiles from several images for speed. The coordinate conversion then
@@ -131,13 +139,15 @@ Calculation idea:
 - Use the camera lat/lng plus distance and angle to calculate the lat/lng of the box
   center.
 
-Assumptions from the sample metadata (to verify):
+Assumptions from the sample metadata (checked: strips are 360° x 90°, horizon on the
+middle row):
 
 - The metadata says 13312 x 6656 (2:1), so the projection is likely equirectangular:
   each pixel maps directly to a horizontal and vertical angle. Focal length and sensor
   size may not be needed.
 - But the sample files are 4:1 strips (about ±45° around the horizon). Take the vertical
-  angle per pixel from the real image, not the metadata size (to verify).
+  angle per pixel from the real image, not the metadata size (checked: strips are 360° x
+  90°, horizon on the middle row).
 - `tilt` is in degrees, and about 90 means the camera is level with the horizon.
 - Distance to a cover comes from the camera height plus a flat-ground assumption.
 
@@ -146,6 +156,10 @@ Location improvement step (to consider):
 - Triangulation from multiple images: one cover seen in several nearby panoramas can
   be located more exactly by combining the views, instead of relying on a single view
   and the flat-ground assumption.
+- Fact check: camera height (about 2.5 m) is not official, GPS accuracy is not
+  published, and a 0.5° angle error is about 1.5 m at 20 m. So triangulation becomes the
+  main location method; the single view estimate matches views and locates covers seen
+  only once. Checked: the sample strips are 360° x 90°, horizon on the middle row.
 
 Verification step (after we have the covers' lat/lng):
 
@@ -153,7 +167,7 @@ Verification step (after we have the covers' lat/lng):
 - Fit straight lines through the detected covers in a given small area (town limits?).
 - Covers on a straight line with others get a higher score.
 - The detector score (how sure the detector is) can also be included in this score.
-- Line fitting method: maybe RANSAC, or a more modern alternative.
+- Line fitting method: multi-model fitting, sequential RANSAC for example.
 
 Duplicate removal (after the covers have real-world coordinates):
 
@@ -163,7 +177,7 @@ Duplicate removal (after the covers have real-world coordinates):
   Any overlapping detection boxes are duplicates.
 - Check edge cases, such as an overlap of a few pixels.
 - Do it per region, not on all detections (avoid comparing parallel streets). Method:
-  KD-tree, especially SciPy's cKDTree.
+  KD-tree, especially SciPy's cKDTree. Convert lat/lng to meters first if needed.
 - Duplicates also occur over time: the same location has panoramas from different
   months and years, so the same cover appears in each of them.
 
@@ -226,21 +240,27 @@ Known objects database:
 ### Ideas
 
 - There may be US or per-state standards for manhole size, shape, etc. that the system
-  can use.
+  can use. Checked: no national size standard (AASHTO M306 covers load, not size); common
+  diameters 22 to 36 in (0.55 to 0.9 m), set per agency. Use as a size check.
 
 ### Open questions (to check)
 
-- Is `heading` a geospatial quantity (where the camera faces)?
-- Are tilt and roll in degrees?
-- Which US / state standards exist for manhole size and shape?
+- Is `heading` a geospatial quantity (where the camera faces)? Checked: compass
+  direction, clockwise from north; which image column it maps to is not documented.
+- Are tilt and roll in degrees? Checked: yes, `tilt` 90 = level, both are corrections
+  already applied.
+- Which US / state standards exist for manhole size and shape? Checked: see Ideas
+  (22 to 36 in, set per agency).
 - Does the pre-trained YOLO model already have a manhole cover class (or a close one)?
 - Can we assume Google Street View images are daylight only?
 - What is considered leakage? Same street: yes. Neighborhood / town: perhaps.
 - Does Google Street View provide camera details fields? (Anat remembers seeing them
   somewhere while using it in the past.)
-- Is the camera lat/lng resolution high enough for the conversion?
+- Is the camera lat/lng resolution high enough for the conversion? Checked: accuracy
+  not published, so triangulation becomes the main location method.
 - How to convert lat/lng to GIS coordinates? What is the difference between lng/lat for
-  a map overlay and a GIS format?
+  a map overlay and a GIS format? Checked: no conversion needed. GeoJSON (RFC 7946)
+  stores WGS84 [lng, lat] points, and both GIS tools and web maps read it.
 - Which line fitting method: RANSAC, or a more modern alternative?
 - Is real-world ground truth available (known infrastructure lines and their covers, or
   covers marked on site)?
@@ -260,14 +280,17 @@ Known objects database:
 - Check if we have all the parameters for the pixel-to-lat/lng calculation. If something
   is missing, what would we need to find or calculate?
 - Claude: search and verify the geospatial conversion ideas and assumptions.
-- Check the Ultralytics YOLO license: using it in production requires paying
-  Ultralytics.
+- Done: check the Ultralytics YOLO license: using it in production requires paying
+  Ultralytics (see Case A).
 - Check the cost of the VLM FP-cleaning flow, and test it with different VLMs and
   prompts.
-- Check the open-vocabulary detectors: Grounding DINO, OWLv2, YOLO-World, moondream2,
-  Qwen-VL.
-- Find the name of the augmentation that cuts out a section of the image.
-- Read more on GIS formats.
+- Done: check the open-vocabulary detectors: Grounding DINO, OWLv2, YOLO-World,
+  moondream2, Qwen-VL. Result: keep Grounding DINO, YOLO-World, and add YOLOE (2025,
+  AGPL); drop OWLv2. moondream2 and Qwen-VL are VLMs that return boxes, not detectors.
+  YOLO-World is weak on small objects (distant covers).
+- Done: find the name of the augmentation that cuts out a section of the image: Cutout /
+  Random Erasing (Albumentations `CoarseDropout` for detection).
+- Done: read more on GIS formats (GeoJSON, GeoPackage for very large layers).
 
 ### Writeup notes
 
@@ -286,7 +309,7 @@ Known objects database:
   region, an open label set, and "unknown" is a valid output.
 - Input images: crops of the manhole covers with a bit of background, like the provided
   examples.
-- In the full system: the classifier gets only the detection crops (undistorted) and
+- In the full system: the classifier gets only the detection crops (IPM view) and
   returns a label per crop, added as a column to the detection list.
 - Evaluation: one confusion matrix for the detector plus classifier pipeline, showing
   both detection and classification mistakes (see point 5).
@@ -295,7 +318,7 @@ Known objects database:
 
 Feature extraction:
 
-- Shape: edge detector / Hough transform.
+- Shape: edge detector / circle/ellipse detection.
 - Text: OCR. Need to check how well it works on dirty or eroded covers.
 - Texture: classical texture filters (family to find later).
 - Size: actual size, if the pixel-to-mm ratio is known.
@@ -311,7 +334,8 @@ Feature vector:
 
 Clustering and labeling:
 
-- Check PCA first, to see if some signals are more relevant than others.
+- Check PCA first: the clusters are easier to visualize after PCA, and it shows which
+  features matter for which points belong to which cluster.
 - Cluster the images in the feature space.
 - See where the provided examples land, and whether they can label each cluster.
   - Label clusters by distance to the provided examples, such as kNN.
@@ -348,12 +372,15 @@ VLM description route:
 - Add an "unknown" option to each feature, to escalate to humans.
 - The feature vector encodings may change over a few iterations (adding keywords,
   colors, shapes, etc.).
-- Possibly use a "word2vec"-like embedding space, so that gray squares sit together, far
-  from black circles. Anat is not sure about this.
+- Possibly embed the answers with the CLIP text encoder, so that gray squares sit
+  together, far from black circles. Anat is not sure about this.
 
 JEV:
 
 - A tool for making decisions. Open source versions exist.
+- Fact check: Jev (TypeSafe AI) is a commercial decision model. It takes images and asks
+  structured questions with fixed answer options. API only; an open-weight version
+  exists: Jev-Omni (12B, Gemma-based, Apache 2.0).
 
 Cost and latency note:
 
@@ -389,7 +416,7 @@ Cost and latency note:
 - How well does OCR work on dirty or eroded covers?
 - Which family of classical texture filters to use?
 - Is the pixel-to-mm ratio known for the crops?
-- Is a "word2vec"-like embedding space useful for the VLM structured answers?
+- Is the CLIP text encoder useful for the VLM structured answers?
 - Can JEV (or a similar tool) be used here? Does it support an "unknown" option for
   images outside the provided examples? Does it work on images, or do we need to convert
   them to text first?
@@ -447,12 +474,14 @@ Gaps found by Claude, to address one at a time:
 - Task 1, boxes or masks: masks give a more exact center and shape for the geospatial
   conversion.
   - Boxes are enough at this point.
-- Task 1, panorama input: full panorama, or undistorted tiles cut from it.
+- Task 1, panorama input: full panorama, or IPM tiles cut from it.
   - Assume the road and sidewalk can easily be cut as the lower half of the image.
-  - Compare detection on the undistorted lower halves with detection on the still
-    distorted lower halves.
-  - The YOLO framework has perspective and shear augmentations, so the undistortion step
+  - Compare detection on the IPM lower halves with detection on the raw lower
+    halves.
+  - The YOLO framework has perspective and shear augmentations, so the IPM step
     may not be required. Still, it is good to know it is an option.
+    (NOTE: fact checking showed that the YOLO transformations cannot simulate panoramic
+    distortion, so the augmentations need to be re-examined.)
 - Task 1, active learning: pick the samples to label by model uncertainty.
   - Not mentioned before, but a good way to decide what to label. Likely to come up from
     a leading question such as "how would you select what to label?".
@@ -467,13 +496,13 @@ Gaps found by Claude, to address one at a time:
 - Task 1, augmentation.
   - Distorted panoramas: simulate different locations in the camera FOV (different
     distortion).
-  - Undistorted images: simulate the undistortion artifacts.
+  - IPM images: simulate the IPM artifacts.
   - Mirroring is ok.
   - Rotation needs checking: don't create images that do not look like the real world.
   - Lighting is required: brightness, or any combination that gives different weather
     and time-of-day appearance.
   - Obstructions: covers can be blocked by cars or pedestrians. Train with a section of
-    the image cut out (name of the method to find).
+    the image cut out (Cutout / Random Erasing).
 - Task 2, few-shot paradigms: classify directly by distance to the provided examples in
   embedding space (nearest neighbor, prototypes).
   - Implied in the clustering route: the provided examples label the clusters based on
@@ -504,9 +533,9 @@ Gaps found by Claude, to address one at a time:
 
 The final system, in order:
 
-1. Image preprocessing (small module): crop ROIs, optionally undistort.
+1. Image preprocessing (small module): crop ROIs, optionally IPM.
    - Input: a path to the image (the module also loads the image), and the
-     undistortion parameters (if required).
+     IPM parameters (if required).
    - If the crop is too large, tile it after cropping: we don't want to resize the
      input too much.
    - Save the source of each tile (image, coordinates in the image).
@@ -533,11 +562,12 @@ The final system, in order:
    - KD-tree is a good method, especially SciPy's cKDTree.
    - Output: the same list of coordinates and confidence, deduplicated.
 5. "Straight line checker": combines the detection score with a score for how well each
-   detection aligns with other detections. Maybe RANSAC, or a more modern alternative.
+   detection aligns with other detections. Multi-model fitting, sequential
+   RANSAC for example.
    - Output: the same list, with an additional score column.
 6. Classifier. Can later be merged with the detector into one detector plus classifier
    model, like YOLO.
-   - Input: only the detection crops (undistorted).
+   - Input: only the detection crops (IPM view).
    - Output: a label per crop, added as a column to the detection list.
 7. Output formatting: arranges the output in a format the next step ingests, for
    example lng/lat for a map overlay, or GIS (read more on GIS to understand the
@@ -617,8 +647,9 @@ Parameter tuning is done per module. It is not in the current scope.
   the camera position is known (Task 1).
 - The panoramas are equirectangular (metadata says 2:1), so each pixel maps to an angle;
   the sample files are 4:1 strips (about ±45° around the horizon), so the vertical angle
-  per pixel comes from the real image; `tilt` is in degrees, with about 90 level with the
-  horizon; distance comes from the camera height plus a flat ground (Task 1, to verify).
+  per pixel comes from the real image; `tilt` is in degrees, with about 90 level with
+  the horizon; distance comes from the camera height plus a flat ground (Task 1,
+  checked: strips are 360° x 90°, horizon on the middle row).
 - Infrastructure travels in straight lines most of the time (Task 1).
 - The road and sidewalk can easily be cut as the lower half of the panorama (Task 1).
 - Manhole covers can't overlap, and probably have a minimal distance between them
