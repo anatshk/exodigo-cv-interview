@@ -131,6 +131,20 @@ Calculation idea:
 - Use the camera lat/lng plus distance and angle to calculate the lat/lng of the box
   center.
 
+Assumptions from the sample metadata (to verify):
+
+- The images are 2:1 (13312 x 6656), so the projection is likely equirectangular: each
+  pixel maps directly to a horizontal and vertical angle. Focal length and sensor size
+  may not be needed.
+- `tilt` is in degrees, and about 90 means the camera is level with the horizon.
+- Distance to a cover comes from the camera height plus a flat-ground assumption.
+
+Location improvement step (to consider):
+
+- Triangulation from multiple images: one cover seen in several nearby panoramas can
+  be located more exactly by combining the views, instead of relying on a single view
+  and the flat-ground assumption.
+
 Verification step (after we have the covers' lat/lng):
 
 - Assumption: infrastructure travels in straight lines most of the time.
@@ -148,6 +162,16 @@ Duplicate removal (after the covers have real-world coordinates):
 - Check edge cases, such as an overlap of a few pixels.
 - Do it per region, not on all detections (avoid comparing parallel streets). Method:
   KD-tree, especially SciPy's cKDTree.
+- Duplicates also occur over time: the same location has panoramas from different
+  months and years, so the same cover appears in each of them.
+
+Known objects database:
+
+- Keep a database of known covers (location, type, confidence), per region to keep it
+  small.
+- New detections are matched against it, across panoramas and across years.
+- A cover seen at the same place in several years gets a higher confidence. A cover seen
+  only once may be a false positive, or it may have been removed or paved over.
 
 ### Dataset setup
 
@@ -169,6 +193,9 @@ Duplicate removal (after the covers have real-world coordinates):
   GIS. The output module can also rearrange the data.
 - Calculate a "final confidence" here, and use it to affect how detections are
   displayed on the final map (for example, a different color by score).
+- The classifier labels are the utility types. The output module can use a dictionary of
+  providers to convert a label to what users want to see (type only, or type plus
+  provider).
 
 ### Validation
 
@@ -183,6 +210,9 @@ Duplicate removal (after the covers have real-world coordinates):
   and covers, or covers marked by walking a street), if available.
 - Recall vs precision priority and threshold depend on whether covers are proxies for
   the line or the actual goal.
+- Sensor-based utility estimations: if the goal of the system is not to add confidence
+  to those measurements, they can be used as weak labels. If the goal is to add
+  confidence to them, using them as labels is leakage.
 
 ### Challenges (see point 6)
 
@@ -250,6 +280,8 @@ Duplicate removal (after the covers have real-world coordinates):
   communication). There may also be differences between providers.
 - Data: a small set of representative examples per region. Not enough for model
   training.
+- Problem type: unsupervised / semi-supervised classification. Few labeled examples per
+  region, an open label set, and "unknown" is a valid output.
 - Input images: crops of the manhole covers with a bit of background, like the provided
   examples.
 - In the full system: the classifier gets only the detection crops (undistorted) and
@@ -558,9 +590,18 @@ Classifier scope, TBD after understanding the data and requirements:
 - So either one detector plus a classifier selected by area, or multiple YOLO models
   (detector plus classifier) selected by region.
 
-## Todos
+## Parameter tuning
 
-## Open questions
+Parameter tuning is done per module. It is not in the current scope.
+
+- Detector confidence threshold: YOLO allows tuning the detection and classification
+  thresholds, which controls the FP / FN balance. A class that is more sensitive to FPs
+  can get a higher threshold (Anat did this in a past project).
+- NMS IoU: keep the default unless a problem shows up. The objects are far enough apart.
+- Tile size and input resolution: depend on the data. Decide after the first iteration.
+- Duplicate removal radius and straight line tolerance: can depend on building
+  standards. Leave for now.
+- Outlier threshold (Task 2): start with defaults, change after the first iteration.
 
 ## Assumptions
 
@@ -572,6 +613,9 @@ Classifier scope, TBD after understanding the data and requirements:
   same place separates road and sidewalk from sky and buildings (Task 1).
 - Camera information is available (focal length, sensor pixel-to-mm factor, etc.), and
   the camera position is known (Task 1).
+- The panoramas are equirectangular (2:1), so each pixel maps to an angle; `tilt` is in
+  degrees, with about 90 level with the horizon; distance comes from the camera height
+  plus a flat ground (Task 1, to verify).
 - Infrastructure travels in straight lines most of the time (Task 1).
 - The road and sidewalk can easily be cut as the lower half of the panorama (Task 1).
 - Manhole covers can't overlap, and probably have a minimal distance between them
